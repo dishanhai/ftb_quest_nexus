@@ -1,0 +1,1 @@
+{"type":"minecraft:block","pools":[{"rolls":1,"entries":[{"type":"minecraft:item","name":"ftb_quest_nexus:ftbq_ae_submitter","functions":[{"function":"minecraft:copy_nbt","source":"block_entity","ops":[{"source":"SubmitterData","target":"BlockEntityTag.SubmitterData","op":"replace"}]}]}],"conditions":[{"condition":"minecraft:survives_explosion"}]}]}

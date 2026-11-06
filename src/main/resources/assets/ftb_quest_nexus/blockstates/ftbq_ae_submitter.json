@@ -1,0 +1,50 @@
+{
+  "variants": {
+    "facing=north,online=false": {
+      "model": "ftb_quest_nexus:block/ftbq_ae_submitter"
+    },
+    "facing=north,online=true": {
+      "model": "ftb_quest_nexus:block/ftbq_ae_submitter_active"
+    },
+    "facing=south,online=false": {
+      "model": "ftb_quest_nexus:block/ftbq_ae_submitter",
+      "y": 180
+    },
+    "facing=south,online=true": {
+      "model": "ftb_quest_nexus:block/ftbq_ae_submitter_active",
+      "y": 180
+    },
+    "facing=east,online=false": {
+      "model": "ftb_quest_nexus:block/ftbq_ae_submitter",
+      "y": 90
+    },
+    "facing=east,online=true": {
+      "model": "ftb_quest_nexus:block/ftbq_ae_submitter_active",
+      "y": 90
+    },
+    "facing=west,online=false": {
+      "model": "ftb_quest_nexus:block/ftbq_ae_submitter",
+      "y": 270
+    },
+    "facing=west,online=true": {
+      "model": "ftb_quest_nexus:block/ftbq_ae_submitter_active",
+      "y": 270
+    },
+    "facing=up,online=false": {
+      "model": "ftb_quest_nexus:block/ftbq_ae_submitter",
+      "x": 270
+    },
+    "facing=up,online=true": {
+      "model": "ftb_quest_nexus:block/ftbq_ae_submitter_active",
+      "x": 270
+    },
+    "facing=down,online=false": {
+      "model": "ftb_quest_nexus:block/ftbq_ae_submitter",
+      "x": 90
+    },
+    "facing=down,online=true": {
+      "model": "ftb_quest_nexus:block/ftbq_ae_submitter_active",
+      "x": 90
+    }
+  }
+}
