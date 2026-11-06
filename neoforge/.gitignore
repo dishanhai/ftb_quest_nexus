@@ -1,0 +1,8 @@
+# Author: dishanhai
+.gradle/
+build/
+run/
+libs/*.jar
+*.log
+.idea/
+*.iml
