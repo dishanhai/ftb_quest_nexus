@@ -50,5 +50,9 @@
   "gui.ftb_quest_nexus.submitter.queue_detail": "目标: %s",
   "gui.ftb_quest_nexus.submitter.queue_detail.empty": "空",
   "gui.ftb_quest_nexus.submitter.queue_detail.invalid": "%s（失效）",
-  "gui.ftb_quest_nexus.submitter.queue_detail.more": " … 另有 %s 项"
+  "gui.ftb_quest_nexus.submitter.queue_detail.more": " … 另有 %s 项",
+  "config.ftb_quest_nexus.ftbq_ui": "FTBQ 界面外观",
+  "config.ftb_quest_nexus.ftbq_ui.mode": "界面模式（原版 / 透明玻璃）",
+  "config.ftb_quest_nexus.ftbq_ui.opacity": "玻璃材质不透明度倍率",
+  "config.ftb_quest_nexus.ftbq_ui.blur_radius": "背景模糊半径（0 为关闭）"
 }

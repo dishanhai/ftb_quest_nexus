@@ -50,5 +50,9 @@
   "gui.ftb_quest_nexus.submitter.queue_detail": "Targets: %s",
   "gui.ftb_quest_nexus.submitter.queue_detail.empty": "Empty",
   "gui.ftb_quest_nexus.submitter.queue_detail.invalid": "%s (invalid)",
-  "gui.ftb_quest_nexus.submitter.queue_detail.more": " … %s more"
+  "gui.ftb_quest_nexus.submitter.queue_detail.more": " … %s more",
+  "config.ftb_quest_nexus.ftbq_ui": "FTBQ appearance",
+  "config.ftb_quest_nexus.ftbq_ui.mode": "Interface mode (original / transparent glass)",
+  "config.ftb_quest_nexus.ftbq_ui.opacity": "Glass material opacity multiplier",
+  "config.ftb_quest_nexus.ftbq_ui.blur_radius": "Backdrop blur radius (0 disables blur)"
 }

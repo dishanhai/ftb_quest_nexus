@@ -18,8 +18,10 @@ repositories {
 def sharedJava = fileTree('../src/main/java') {
     include 'com/dishanhai/ftb_quest_nexus/api/ftbq/**'
     include 'com/dishanhai/ftb_quest_nexus/client/HeaderButtonLayout.java'
+    include 'com/dishanhai/ftb_quest_nexus/client/glass/GlassUiPolicy.java'
 }
 sourceSets.test.java.srcDir '../src/test/java'
+sourceSets.test.java.exclude '**/ForgeQuestGlassMixinContractTest.java'
 sourceSets.test {
     compileClasspath += sourceSets.main.compileClasspath
     runtimeClasspath += sourceSets.main.runtimeClasspath
