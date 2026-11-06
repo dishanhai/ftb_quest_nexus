@@ -1,0 +1,84 @@
+// Author: dishanhai
+plugins {
+    id 'java'
+    id 'eclipse'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'org.parchmentmc.librarian.forgegradle' version '1.+'
+}
+
+group = 'com.dishanhai'
+version = mod_version
+base { archivesName = mod_id }
+java { toolchain.languageVersion = JavaLanguageVersion.of(21); withSourcesJar() }
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+repositories { mavenCentral(); flatDir { dirs 'libs' } }
+
+// Develop against the separate UI project; install its release jar as a prerequisite.
+def shBetterUiJar = file(findProperty('shBetterUiJar') ?:
+        "../SH-Better-UI/build/libs/sh_better_ui-${sh_better_ui_version}-dev.jar")
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    ['appliedenergistics2-forge:15.4.10', 'ftb-quests-forge:2001.4.22',
+     'ftb-teams-forge:2001.3.2', 'ftb-library-forge:2001.2.13',
+     'architectury:9.2.14-forge', 'guideme:20.1.15'].each {
+        implementation(fg.deobf("local:${it}")) { transitive = false }
+    }
+    implementation files(shBetterUiJar)
+    runtimeOnly files('libs/runtime/kotlinforforge-4.12.0-all.jar')
+    compileOnly files('libs/Jade-1.20.1-Forge-11.13.3.jar')
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+tasks.withType(Test).configureEach { useJUnitPlatform() }
+
+tasks.named('compileJava') {
+    doFirst {
+        if (!shBetterUiJar.isFile()) {
+            throw new GradleException('Build SH-Better-UI devJar first, or set -PshBetterUiJar=<dev-jar>.')
+        }
+    }
+}
+
+// Reuse local metadata when available; clean checkouts still use ForgeGradle normally.
+def cachedMcVersionJson = file("${System.properties['user.home']}/.gradle/caches/forge_gradle/minecraft_repo/versions/${minecraft_version}/version.json")
+def mcMetaOut = layout.buildDirectory.file('downloadMCMeta/version.json').get().asFile
+if (cachedMcVersionJson.isFile() && !mcMetaOut.isFile()) {
+    mcMetaOut.parentFile.mkdirs()
+    java.nio.file.Files.copy(cachedMcVersionJson.toPath(), mcMetaOut.toPath())
+}
+minecraft {
+    mappings channel: mappings_channel, version: "${mappings_version}-${minecraft_version}"
+    runs {
+        configureEach {
+            workingDirectory file('run')
+            property 'forge.logging.console.level', 'info'
+            // Dependency refmaps contain SRG names; development Minecraft uses mapped names.
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', file('build/createSrgToMcp/output.srg').absolutePath
+            mods { ftb_quest_nexus { source sourceSets.main } }
+        }
+        client {}
+        server { args '--nogui' }
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+    }
+}
+processResources {
+    def props = [mod_id: mod_id, mod_name: mod_name, mod_version: mod_version,
+                 mod_authors: mod_authors, minecraft_version: minecraft_version, forge_version: forge_version]
+    inputs.properties props
+    filesMatching('META-INF/mods.toml') { expand props }
+}
+jar {
+    // Keep the dedicated server fixtures available to development runs only.
+    exclude '**/*GameTests*.class', 'data/ftb_quest_nexus/structures/empty.nbt'
+    manifest.attributes('Specification-Title': mod_name, 'Specification-Vendor': mod_authors,
+            'Specification-Version': '1', 'Implementation-Title': mod_name,
+            'Implementation-Version': project.version, 'Implementation-Vendor': mod_authors,
+            'MixinConfigs': 'ftb_quest_nexus.mixins.json')
+    finalizedBy 'reobfJar'
+}
+tasks.named('wrapper') { gradleVersion = '8.8'; distributionType = Wrapper.DistributionType.BIN }
+
+tasks.matching { it.name.startsWith('run') }.configureEach { dependsOn 'createSrgToMcp' }
