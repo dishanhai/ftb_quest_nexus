@@ -2,6 +2,7 @@ package com.dishanhai.ftb_quest_nexus.client;
 
 import com.dishanhai.ftb_quest_nexus.QuestNexus;
 import com.dishanhai.ftb_quest_nexus.NexusContent;
+import com.dishanhai.ftb_quest_nexus.client.glass.QuestGlassUi;
 import com.dishanhai.sh_better_ui.client.blur.GaussBlur;
 import com.dishanhai.sh_better_ui.client.glass.GlassTooltip;
 import net.minecraft.client.Minecraft;
@@ -22,12 +23,13 @@ public final class NexusClient {
     public static void setup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
             MenuScreens.register(NexusContent.MENU.get(), SubmitterScreen::new);
-            GaussBlur.allowScreen(screen -> screen instanceof SubmitterScreen);
+            GaussBlur.allowScreen(screen -> screen instanceof SubmitterScreen || QuestGlassUi.active(screen));
             MinecraftForge.EVENT_BUS.addListener(NexusClient::tooltip);
         });
     }
 
     private static void tooltip(RenderTooltipEvent.Pre event) {
-        if (Minecraft.getInstance().screen instanceof SubmitterScreen) GlassTooltip.render(event);
+        var screen = Minecraft.getInstance().screen;
+        if (screen instanceof SubmitterScreen || QuestGlassUi.active(screen)) GlassTooltip.render(event);
     }
 }
