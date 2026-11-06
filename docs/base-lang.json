@@ -1,0 +1,16 @@
+{
+  "zh_cn": {
+    "block.ftb_quest_nexus.ftbq_ae_submitter": "FTBQ AE 自动提交器",
+    "tooltip.ftb_quest_nexus.submitter.1": "§7接入 AE 网络，真实消耗物品以提交队伍的 FTBQ 目标",
+    "tooltip.ftb_quest_nexus.submitter.2": "§7先绑定队伍，再从任务详情页登记目标",
+    "tooltip.ftb_quest_nexus.submitter.3": "§7物品奖励优先回到 AE，空间不足时持久保存余量",
+    "tooltip.ftb_quest_nexus.submitter.4": "§c只处理消耗型物品目标；选择奖励请手动领取"
+  },
+  "en_us": {
+    "block.ftb_quest_nexus.ftbq_ae_submitter": "FTBQ AE Submitter",
+    "tooltip.ftb_quest_nexus.submitter.1": "§7Consumes actual AE items to progress your team's FTBQ item tasks",
+    "tooltip.ftb_quest_nexus.submitter.2": "§7Bind a team, then register tasks from their quest details",
+    "tooltip.ftb_quest_nexus.submitter.3": "§7Item rewards return to AE; undelivered items are safely retained",
+    "tooltip.ftb_quest_nexus.submitter.4": "§cConsumable item tasks only; claim choice rewards manually"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "status.ftb_quest_nexus.unbound": ["未绑定队伍和领取玩家", "Team and reward player not bound"],
+  "status.ftb_quest_nexus.pending_rebind": ["奖励待回网，暂不能重新绑定", "Deliver pending rewards before rebinding"],
+  "status.ftb_quest_nexus.quests_unavailable": ["FTBQ 尚未加载", "FTB Quests is not ready"],
+  "status.ftb_quest_nexus.bound": ["已绑定队伍和领取玩家", "Team and reward player bound"],
+  "status.ftb_quest_nexus.cleared": ["已清空任务队列", "Task queue cleared"],
+  "status.ftb_quest_nexus.toast_hidden": ["已屏蔽自动提交完成提示", "Automatic submission toasts hidden"],
+  "status.ftb_quest_nexus.toast_shown": ["已显示自动提交完成提示", "Automatic submission toasts shown"],
+  "status.ftb_quest_nexus.rewards_queued": ["奖励领取改为仅队列任务", "Claiming queued quest rewards only"],
+  "status.ftb_quest_nexus.rewards_all": ["奖励领取改为全部任务", "Claiming all quest rewards"],
+  "status.ftb_quest_nexus.offline": ["AE 网络离线", "AE network offline"],
+  "status.ftb_quest_nexus.no_network": ["未连接 AE 网络", "No AE network connection"],
+  "status.ftb_quest_nexus.pending_rewards": ["奖励待回网：AE 空间不足", "Rewards pending: AE storage is full"],
+  "status.ftb_quest_nexus.locked": ["队伍任务已锁定", "Team quests are locked"],
+  "status.ftb_quest_nexus.player_left": ["领取玩家已离队，请重新绑定", "Reward player left the team; bind again"],
+  "status.ftb_quest_nexus.worked": ["提交 %s / 奖励 %s", "Submitted %s / Rewards %s"],
+  "status.ftb_quest_nexus.waiting": ["等待任务登记", "Waiting for queued tasks"],
+  "status.ftb_quest_nexus.missing_items": ["AE 中缺少队列目标物品", "Queued task items missing from AE storage"],
+  "status.ftb_quest_nexus.queued": ["已加入任务队列", "Task added to queue"],
+  "status.ftb_quest_nexus.already_queued": ["任务已在队列", "Task already queued"]
+}

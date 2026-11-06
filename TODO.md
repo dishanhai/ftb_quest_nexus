@@ -1,0 +1,14 @@
+# FTB Quest Nexus 待办
+
+- [ ] 云端交付：按构建配置、共用逻辑、Forge、NeoForge、文件记录分批提交；待本机 `gh auth login` 完成后创建私有 GitHub 仓库 `ftb_quest_nexus`，逐批推送并核对远端 main 的提交 SHA。
+
+- [x] 新增独立 NeoForge 1.21.1 版本及外置 SH-Better-UI 对应产物；21 项 Nexus 单测、109 项 UI 单测、11 项服务端 GameTest 通过，原 Forge 构建回归成功。详见 `docs/neoforge-verification.md`，平台实机待验见 `neoforge/TODO.md`。
+
+- [x] wrapper 构建／reobfJar、17 项 JUnit、11 项服务端 GameTest 全通过；正式产物与 reobf 输出 SHA-256 一致，详见 `docs/verification.md`。
+- [x] 玻璃 UI 使用独立 SH-Better-UI 项目作为必需前置；开发依赖直接引用该项目 devJar，正式包不嵌入 UI 库。
+- [ ] 实机验收玻璃模糊、按钮反馈、长 UUID 悬停滚动、不同 GUI 缩放及六向方块贴图。
+- [ ] 实机验收任务页登记、多个同队提交器选择、跨队拒绝、离队重绑、精确／忽略 NBT 与过滤器目标。
+- [ ] 实机验收真实 AE 网络的满盘、断网、卸载重载、服务端重启、正常采掘与重新放置、奖励模式切换及随机表空抽。
+- [ ] 与原 `gt_shanhai` 并装验收两个任务页入口布局和各自队列行为；Jade 有／无两种运行环境分别验收。
+
+不将源码、单元测试或 GameTest 通过等同于 Minecraft 客户端实机验收。未部署、未重启既有游戏实例，未创建远端仓库或发布。
