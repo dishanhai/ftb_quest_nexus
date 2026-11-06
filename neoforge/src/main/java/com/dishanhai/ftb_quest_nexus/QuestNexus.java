@@ -2,8 +2,11 @@ package com.dishanhai.ftb_quest_nexus;
 
 import com.dishanhai.ftb_quest_nexus.network.NexusNetwork;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
+import com.dishanhai.ftb_quest_nexus.config.ClientUiConfig;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 
@@ -12,7 +15,8 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 public final class QuestNexus {
     public static final String MOD_ID = "ftb_quest_nexus";
 
-    public QuestNexus(IEventBus bus) {
+    public QuestNexus(IEventBus bus, ModContainer container) {
+        container.registerConfig(ModConfig.Type.CLIENT, ClientUiConfig.SPEC);
         NexusContent.BLOCKS.register(bus);
         NexusContent.ITEMS.register(bus);
         NexusContent.BLOCK_ENTITIES.register(bus);

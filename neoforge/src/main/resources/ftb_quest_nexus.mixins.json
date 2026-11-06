@@ -4,6 +4,6 @@
   "package": "com.dishanhai.ftb_quest_nexus.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": ["FtbTeamDataToastMixin"],
-  "client": ["FtbViewQuestPanelSubmitterButtonMixin"],
+  "client": ["FtbViewQuestPanelSubmitterButtonMixin", "FtbBaseScreenGlassMixin", "FtbLibraryScreenGlassMixin", "FtbQuestScreenGlassMixin", "FtbQuestPanelGlassMixin", "FtbChapterPanelGlassMixin", "FtbOtherQuestScreenGlassMixin", "FtbQuestStatusGlassMixin"],
   "injectors": {"defaultRequire": 1}
 }
