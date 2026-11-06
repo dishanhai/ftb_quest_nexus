@@ -49,6 +49,23 @@ $env:TMP = 'C:\jtmp'
 
 使用新项目的 `run/` 目录，不触碰现有游戏实例。实际执行结果见 `docs/verification.md`，实机待验内容见 [TODO.md](TODO.md)。
 
+## FTBQ 透明玻璃覆盖
+
+两个平台都可通过客户端 `config/ftb_quest_nexus-client.toml` 切换 FTBQ 外观，默认保留原版：
+
+```toml
+[ftbqUi]
+mode = "GLASS"
+opacity = 1.0
+blurRadius = 8
+```
+
+`mode` 可选 `ORIGINAL`／`GLASS`。`opacity` 范围 0–1，缩放玻璃底色和边框原有的不透明度（默认材质本身已半透明）；0 不绘制结构玻璃面层。`blurRadius` 为 0–16 的整数 GUI 单位，0 关闭背景模糊。修改后关闭并重新打开对应界面；任务界面打开的子对话框继承其配置快照。
+
+覆盖主画布、章节栏、工具按钮、任务详情、槽位、输入框、滚动条、右键菜单及 FTBQ 所属的配置／选择窗口。原任务控件、拖曳、缩放、编辑、提交、领奖及状态颜色保持；整合包自定义背景、章节图片、图标与连线继续使用原资源。其他模组的 FTB Library 界面不启用覆盖。
+
+复用外置 SH-Better-UI，玻璃根背景采样后再绘制控件；模糊不可用时保留透明材质。非零透明度下的库内细高光，以及 tooltip，继续使用 UI 库预设材质。实际画面和交互仍需客户端验收，构建与验证见 [docs/glass-verification.md](docs/glass-verification.md)。
+
 ## 原项目与来源
 
 由 `gt_shanhai:ftbq_ae_submitter` fork，保留其提交与奖励交付语义、玻璃外观及动画资源。原项目代码、注册及配方保留；旧方块与新方块使用独立 ID、队列、网络通道和节点，不自动迁移旧存档。并装时各自有任务登记入口，实际共存操作仍需按验收单测试。

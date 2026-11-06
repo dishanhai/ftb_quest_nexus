@@ -2,6 +2,12 @@
 
 作者：dishanhai。獨立版本線，保留根目錄 Forge 1.20.1。
 
+- [x] FTBQ 玻璃覆盖基础验证：客户端配置与主题适配编译成功；29 项 JUnit（含共享策略与实际 FTBQ／FTB Library 字节码契约）通过，`verifyModJar` 通过，独立专用服务器 11 项 GameTest 通过。
+
+- [ ] FTBQ 玻璃覆盖实机验收：原版／玻璃配置切换及重开生效、透明度、0／默认／最大模糊半径；确认无关 FTB Library 界面保持原样。
+- [ ] FTBQ 全界面实机验收：章节展开、画布拖拽／缩放／框选、自定义图片、任务详情／计时／状态、任务登记、奖励选择、编辑器、弹窗、搜索／滚动条、tooltip 与不同 GUI 缩放。
+- [ ] SH-Better-UI tooltip 使用库内固定玻璃材质，当前不跟随 FTBQ 的 `opacity`／`blurRadius` 参数；客户端验收需确认该差异可接受。
+
 - [x] 用戶確認 Minecraft 1.21.1，SH-Better-UI 保持外部前置。
 - [x] 先建立 payload 編解碼、數量限制與不可變清單測試。
 - [x] 固定 NeoForge／AE2／FTB／KotlinForForge 相容依賴。

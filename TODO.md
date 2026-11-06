@@ -1,5 +1,8 @@
 # FTB Quest Nexus 待办
 
+- [x] 新增双平台可配置 FTBQ 玻璃主题覆盖与局部结构绘制适配，默认保留原版；客户端配置和使用方法见 README。
+- [ ] FTBQ 玻璃覆盖实机验收：原版／玻璃往返、同一界面实例关闭重开读取配置、透明度 0／1、模糊 0／16、章节展开、详情翻页、任务节点拖曳／缩放／框选、编辑器、奖励选择、右键菜单、配置／物品选择窗口、tooltip／GUI 缩放及资源重载；核对其他模组 FTB Library 画面保持原样。
+
 - [x] 云端交付：已按构建配置、共用逻辑、Forge、NeoForge、文件记录完成五批提交；用户创建远端仓库 https://github.com/dishanhai/ftb_quest_nexus，已核对远端 main 包含全部五批提交，与本地提交 `2710fbae8f1e439727021d080c11b051dc0f45d9` 一致。
 
 - [x] 新增独立 NeoForge 1.21.1 版本及外置 SH-Better-UI 对应产物；21 项 Nexus 单测、109 项 UI 单测、11 项服务端 GameTest 通过，原 Forge 构建回归成功。详见 `docs/neoforge-verification.md`，平台实机待验见 `neoforge/TODO.md`。

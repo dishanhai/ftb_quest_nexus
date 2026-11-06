@@ -1,5 +1,14 @@
 # Author: dishanhai — fork verification errors
 
+## 2026-11-07：玻璃覆盖的补丁与验证边界
+
+- 状态：resolved。
+- NeoForge 实施时，一次跨文件补丁因最后一处 TODO 上下文不匹配整体未应用；改为拆开补丁并逐文件核对后继续，不假定前面文件已写入。
+- 共享策略先写测试再实现，首轮测试编译因 `GlassUiPolicy` 尚未存在而失败，属于预期红灯；实现后针对性测试通过。依赖 Mixin 的客户端注入仍需独立于单元测试、构建与专用服务器验证。
+- 只在 BaseScreen.getTheme 注入会遗漏自行覆写该方法的 FTBQ 与 FTBLib 页面；已按两个版本真实 jar 分别核对声明并补充目标。弱引用配置快照还必须在 initGui 重建，不能假设关窗即销毁 QuestScreen 实例。
+- 检查并行实现时曾误用 Forge 的 QuestGlassUi 文件名读取 NeoForge 实现；先列出 agent 文件清单，改读实际 QuestUiHooks，不据文件不存在推断功能缺失。
+- 不猜测并行执行者的验证日志文件名；已由 agent 确认 NeoForge 的本轮服务端证据实际在 `neoforge/run/logs/latest.log`，root 重新读取并核对通过行。
+
 ## 2026-11-07：分批提交的搜索参数检查
 
 - 状态：resolved。
