@@ -12,6 +12,7 @@ import dev.ftb.mods.ftbquests.client.gui.quests.ViewQuestPanel;
 import dev.ftb.mods.ftbquests.quest.Quest;
 import dev.ftb.mods.ftbquests.quest.QuestObjectBase;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.ConsumableTask;
+import com.dishanhai.ftb_quest_nexus.api.ftbq.SubmitterQuestIndex;
 import dev.ftb.mods.ftbquests.quest.task.Task;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
@@ -42,11 +43,15 @@ public abstract class FtbViewQuestPanelSubmitterButtonMixin {
                 break;
             }
         }
-        if (target == null) return;
+        if (target == null) {
+            target = quest.getTasks().stream().filter(SubmitterQuestIndex::supportsQueueTask).findFirst().orElse(null);
+            if (target == null) return;
+        }
+        String label = ConsumableTask.supported(target) ? "register" : "register_experience";
         long taskId = QuestObjectBase.getID(target);
         ViewQuestPanel panel = (ViewQuestPanel) (Object) this;
         nexus$queueButton = new SimpleButton(panel,
-                Component.translatable("gui.ftb_quest_nexus.submitter.register"), Icons.ADD,
+                Component.translatable("gui.ftb_quest_nexus.submitter." + label), Icons.ADD,
                 (widget, mouseButton) -> NexusNetwork.CHANNEL.sendToServer(new FtbqSubmitterListRequestPacket(taskId)));
         panel.add(nexus$queueButton);
         int size = titleField == null ? 16 : Math.min(16, titleField.height + 2);

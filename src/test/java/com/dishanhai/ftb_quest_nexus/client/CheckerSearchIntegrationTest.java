@@ -37,7 +37,9 @@ class CheckerSearchIntegrationTest {
         assertTrue(calls.containsAll(Set.of("SearchIndex.search", "SearchField.<init>", "SearchField.setScope",
                 "SearchField.renderSuggestions", "SearchField.mouseClickedSuggestion",
                 "SearchField.mouseScrolledSuggestions", "CheckerMenu.getCatalogRows",
-                "CheckerBlockEntity$CheckRow.completed", "CheckerBlockEntity$CheckRow.available")), calls.toString());
+                "CheckerBlockEntity$CheckRow.completed", "CheckerBlockEntity$CheckRow.available",
+                "CheckerBlockEntity$CheckRow.fluid", "IngredientFilter.all", "IngredientFilter.items",
+                "IngredientFilter.fluids", "IngredientFilter.kinds")), calls.toString());
         assertFalse(calls.contains("CheckerMenu.getPage"), "Search results must be paginated after filtering");
     }
 }

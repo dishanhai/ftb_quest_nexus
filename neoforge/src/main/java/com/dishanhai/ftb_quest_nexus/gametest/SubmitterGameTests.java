@@ -1,7 +1,13 @@
 package com.dishanhai.ftb_quest_nexus.gametest;
 
 // Author: dishanhai. Platform regression checks use actual 1.21.1 components and AE keys.
+import appeng.api.networking.GridHelper;
+import appeng.api.parts.PartHelper;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.util.AEColor;
+import appeng.core.definitions.AEBlocks;
+import appeng.core.definitions.AEParts;
+import com.mojang.authlib.GameProfile;
 import com.dishanhai.ftb_quest_nexus.NexusContent;
 import com.dishanhai.ftb_quest_nexus.QuestNexus;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
@@ -23,9 +29,11 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
+import java.util.List;
 import java.util.UUID;
 
 @GameTestHolder(QuestNexus.MOD_ID)
@@ -139,6 +147,56 @@ public final class SubmitterGameTests {
             helper.setBlock(pos, net.minecraft.world.level.block.Blocks.AIR);
             helper.assertTrue(entity.getMainNode().getNode() == null, "Removed node remained alive");
             helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty")
+    public static void rightClickWithAeCablePlacesItAgainstSubmitter(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(2, 2, 2);
+        helper.setBlock(pos, NexusContent.SUBMITTER.get());
+        BlockPos absolute = helper.absolutePos(pos);
+        var level = helper.getLevel();
+        var player = FakePlayerFactory.get(level, new GameProfile(UUID.randomUUID(), "NexusCableTest"));
+        var cableItem = AEParts.SMART_DENSE_CABLE.item(AEColor.TRANSPARENT);
+        var cable = new ItemStack(cableItem);
+        player.setItemInHand(InteractionHand.MAIN_HAND, cable);
+        Direction side = Direction.EAST;
+        var hit = new BlockHitResult(Vec3.atCenterOf(absolute).add(0.5, 0, 0), side, absolute, false);
+        player.gameMode.useItemOn(player, level, cable, InteractionHand.MAIN_HAND, hit);
+        var host = PartHelper.getPartHost(level, absolute.relative(side));
+        helper.assertTrue(host != null && host.getPart(null) != null
+                && host.getPart(null).getPartItem() == cableItem, "Submitter consumed the cable placement click");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void existingSubmitterConnectsToAeCablesOnEveryFace(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(2, 2, 2);
+        helper.setBlock(pos, NexusContent.SUBMITTER.get());
+        helper.setBlock(pos.relative(Direction.EAST, 2), AEBlocks.CREATIVE_ENERGY_CELL.block());
+        var cables = List.of(AEParts.GLASS_CABLE, AEParts.COVERED_CABLE, AEParts.SMART_CABLE,
+                AEParts.COVERED_DENSE_CABLE, AEParts.SMART_DENSE_CABLE, AEParts.SMART_CABLE);
+        var level = helper.getLevel();
+        BlockPos absolute = helper.absolutePos(pos);
+        helper.runAfterDelay(20, () -> {
+            for (Direction direction : Direction.values()) {
+                var host = PartHelper.placePartHost(null, level, absolute.relative(direction));
+                helper.assertTrue(host != null && host.addPart(cables.get(direction.ordinal())
+                        .item(AEColor.TRANSPARENT), null, null) != null, "Could not place AE cable on " + direction);
+            }
+        });
+        helper.succeedWhen(() -> {
+            var entity = (SubmitterBlockEntity) helper.getBlockEntity(pos);
+            helper.assertTrue(GridHelper.getNodeHost(level, absolute) == entity, "AE cannot discover submitter host");
+            var node = entity.getMainNode().getNode();
+            helper.assertTrue(node != null, "Submitter node missing");
+            for (Direction direction : Direction.values()) {
+                var cableNode = GridHelper.getExposedNode(level, absolute.relative(direction), direction.getOpposite());
+                helper.assertTrue(cableNode != null && node.getConnections().stream().anyMatch(connection ->
+                        connection.getDirection(node) == direction && connection.getOtherSide(node) == cableNode),
+                        "Missing AE cable connection on " + direction);
+            }
+            helper.assertTrue(entity.getMainNode().isOnline(), "Submitter did not get power and a channel through the cable");
         });
     }
 

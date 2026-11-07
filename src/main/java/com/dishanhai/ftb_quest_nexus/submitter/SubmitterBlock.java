@@ -1,5 +1,7 @@
 package com.dishanhai.ftb_quest_nexus.submitter;
 
+import appeng.api.implementations.parts.ICablePart;
+import appeng.api.parts.IPartItem;
 import com.dishanhai.ftb_quest_nexus.NexusContent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -46,12 +48,14 @@ public final class SubmitterBlock extends BaseEntityBlock {
     }
     @Override public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (hand != InteractionHand.MAIN_HAND) return InteractionResult.PASS;
+        if (player.getItemInHand(hand).getItem() instanceof IPartItem<?> part
+                && ICablePart.class.isAssignableFrom(part.getPartClass())) return InteractionResult.PASS;
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof SubmitterBlockEntity submitter) {
             NetworkHooks.openScreen(serverPlayer, submitter, pos);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
     @Override public void appendHoverText(ItemStack stack, @Nullable BlockGetter level, List<Component> tooltip, TooltipFlag flag) {
-        for (int i = 1; i <= 8; i++) tooltip.add(Component.translatable("tooltip.ftb_quest_nexus.submitter." + i));
+        for (int i = 1; i <= 9; i++) tooltip.add(Component.translatable("tooltip.ftb_quest_nexus.submitter." + i));
     }
 }

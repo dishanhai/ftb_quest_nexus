@@ -34,6 +34,7 @@ public final class SubmitterInfoProvider implements IBlockComponentProvider, ISe
         state.putString("queueDetail", Component.Serializer.toJson(be.getQueueDetailComponent(), accessor.getLevel().registryAccess()));
         state.putLong("submitted", be.getLastSubmitted());
         state.putLong("submittedFluid", be.getLastSubmittedFluid());
+        if (be.getLastSubmittedChemical() > 0) state.putLong("submittedChemical", be.getLastSubmittedChemical());
         state.putBoolean("matching", be.isMatching());
         state.putLong("rewards", be.getLastClaimedRewards());
         state.putBoolean("suppress", be.isSuppressCompletionToast());
@@ -57,6 +58,9 @@ public final class SubmitterInfoProvider implements IBlockComponentProvider, ISe
         if (queueDetail != null) tooltip.add(Component.translatable(GUI + "queue_detail", queueDetail));
         tooltip.add(Component.translatable(GUI + "submitted", state.getLong("submitted")));
         tooltip.add(Component.translatable(GUI + "submitted_fluid", state.getLong("submittedFluid")));
+        if (state.contains("submittedChemical")) {
+            tooltip.add(Component.translatable(GUI + "submitted_chemical", state.getLong("submittedChemical")));
+        }
         tooltip.add(Component.translatable(GUI + "rewards", state.getLong("rewards")));
         tooltip.add(Component.translatable(GUI + (state.getBoolean("suppress") ? "toast.suppressed" : "toast.normal")));
         tooltip.add(Component.translatable(GUI + (state.getBoolean("matching") ? "claim.matched"

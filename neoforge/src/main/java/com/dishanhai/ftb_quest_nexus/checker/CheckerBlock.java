@@ -71,7 +71,10 @@ public final class CheckerBlock extends BaseEntityBlock {
     }
     @Override
     public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        for (int i = 1; i <= 5; i++) tooltip.add(Component.translatable("tooltip.ftb_quest_nexus.checker." + i));
+        for (int i = 1; i <= 5; i++) {
+            tooltip.add(Component.translatable("tooltip.ftb_quest_nexus.checker." + (i == 3 ? "3_with_energy" : i)));
+        }
+        tooltip.add(Component.translatable("tooltip.ftb_quest_nexus.checker.energy_input"));
     }
 }
 

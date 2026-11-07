@@ -293,6 +293,8 @@ public final class CheckerGameTests {
             outsider.setPos(owner.position());
             helper.assertTrue(!entity.applyAction(outsider, 0) && !entity.applyAction(outsider, 1),
                     "Foreign team changed checker binding or pause state");
+            helper.assertTrue(entity.applyAction(owner, 0) && owner.getUUID().toString().equals(entity.getPlayerIdText()),
+                    "Owner could not refresh their own binding");
             helper.assertTrue(entity.applyAction(owner, 1) && entity.isPaused(), "Owner could not pause");
             helper.assertTrue(entity.applyAction(owner, 1) && !entity.isPaused(), "Owner could not resume");
         });
@@ -314,7 +316,12 @@ public final class CheckerGameTests {
             helper.assertTrue(drops.get(0).getTagElement("BlockEntityTag") == null, "Drop copied binding or node identity");
             ServerPlayer nextPlacer = player(helper);
             restored.bindPlacer(nextPlacer);
-            helper.assertTrue(restored.getPlayerIdText().equals(nextPlacer.getUUID().toString()), "Replacement kept the old owner");
+            helper.assertTrue(restored.getPlayerIdText().equals(owner.getUUID().toString()),
+                    "Placement overwrote an existing owner without consent");
+            CheckerBlockEntity replacement = create(helper);
+            replacement.bindPlacer(nextPlacer);
+            helper.assertTrue(replacement.getPlayerIdText().equals(nextPlacer.getUUID().toString()),
+                    "Fresh checker did not bind its placer");
         });
         helper.succeed();
     }
@@ -362,15 +369,35 @@ public final class CheckerGameTests {
                 runNetworkScan(entity);
                 helper.assertTrue(f.data.isCompleted(f.task), "Actual grid inventory did not complete the bound team's goal");
                 helper.assertTrue(storage.stacks.get(AEItemKey.of(Items.IRON_INGOT)) == 10, "Real AE route consumed items");
+                helper.assertTrue(entity.getRows().isEmpty(), "An unwatched checker built menu rows");
+                int reads = storage.reads;
+                runNetworkScan(entity);
+                helper.assertTrue(storage.reads == reads, "An unwatched checker scanned stock with no pending goal");
+                var previousMenu = owner.containerMenu;
+                var menu = entity.createMenu(1, owner.getInventory(), owner);
+                owner.containerMenu = menu;
+                try {
+                    menu.broadcastChanges();
+                    runNetworkScan(entity);
+                    helper.assertTrue(!entity.getRows().isEmpty(), "Opening the checker did not restore catalog rows");
+                } finally {
+                    menu.removed(owner);
+                    owner.containerMenu = previousMenu;
+                }
+                reads = storage.reads;
+                runNetworkScan(entity);
+                helper.assertTrue(entity.getRows().isEmpty() && storage.reads == reads,
+                        "Closing the checker kept the catalog scan active");
                 CompoundTag saved = entity.saveWithoutMetadata();
-                saved.putUUID("checkerPlayer", UUID.randomUUID());
+                UUID departedOwner = UUID.randomUUID();
+                saved.putUUID("checkerPlayer", departedOwner);
                 entity.load(saved);
                 runNetworkScan(entity);
                 helper.assertTrue(entity.getRows().isEmpty()
                         && entity.writeClientState(0).getString("status").equals("player_left"), "Departed owner did not pause scanning");
-                helper.assertTrue(entity.applyAction(owner, 0), "Original team could not replace the departed owner");
-                runNetworkScan(entity);
-                helper.assertTrue(!entity.getRows().isEmpty(), "Rebinding did not restore scans");
+                helper.assertTrue(entity.canManage(owner) && !entity.applyAction(owner, 0)
+                                && departedOwner.toString().equals(entity.getPlayerIdText()),
+                        "Original team replaced an offline owner without consent");
                 helper.succeed();
             } finally {
                 ServerQuestFile.INSTANCE = previous;
@@ -466,6 +493,123 @@ public final class CheckerGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty")
+    public static void stockDeltaUpdatesPublishedRowsWithoutReplacingCatalog(GameTestHelper helper) {
+        Fixture f = fixture(helper);
+        MemoryStorage storage = new MemoryStorage();
+        CheckerBlockEntity source = create(helper);
+        source.scanInventory(f.file, f.data, new InventoryCheck(storage));
+        CheckerMenu menu = new CheckerMenu(1, player(helper).getInventory(), create(helper));
+        CompoundTag full = source.writeClientState(0);
+        full.putBoolean("catalog", true);
+        full.putLong("revision", 1);
+        full.putInt("chunk", 0);
+        full.putInt("chunks", 1);
+        menu.readState(full);
+        long catalogRevision = menu.getCatalogRevision();
+
+        CompoundTag delta = source.writeClientState(0);
+        delta.putBoolean("delta", true);
+        delta.putLong("revision", 2);
+        delta.putLong("base", 1);
+        delta.putInt("chunk", 0);
+        delta.putInt("chunks", 1);
+        var changes = new net.minecraft.nbt.ListTag();
+        CompoundTag change = new CompoundTag();
+        change.putInt("index", 0);
+        change.putLong("available", 10);
+        change.putBoolean("completed", true);
+        changes.add(change);
+        delta.put("rows", changes);
+        menu.readState(delta);
+        var row = menu.getCatalogRows().getFirst();
+        helper.assertTrue(row.taskId() == f.task.id && row.available() == 10 && row.completed(),
+                "Stock delta did not update the published row");
+        helper.assertTrue(menu.getCatalogRevision() == catalogRevision, "Stock delta replaced the search catalog");
+
+        delta.putLong("revision", 4);
+        delta.putLong("base", 3);
+        change.putLong("available", 0);
+        menu.readState(delta);
+        helper.assertTrue(menu.getCatalogRows().getFirst().available() == 10,
+                "Delta with an unknown base mutated the published rows");
+        helper.assertTrue(menu.takeResyncRequest() && !menu.takeResyncRequest(),
+                "An unknown base did not request one full refresh");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void catalogEditsSendOnlyChangedDefinitions(GameTestHelper helper) {
+        Fixture f = fixture(helper);
+        var edited = new ItemTask(f.file.newID(), f.quest).setStackAndCount(new ItemStack(Items.IRON_INGOT), 10);
+        var removed = new ItemTask(f.file.newID(), f.quest).setStackAndCount(new ItemStack(Items.IRON_INGOT), 10);
+        f.quest.addTask(edited);
+        f.quest.addTask(removed);
+        for (int i = 0; i < 8; i++) {
+            f.quest.addTask(new ItemTask(f.file.newID(), f.quest).setStackAndCount(new ItemStack(Items.IRON_INGOT), 10));
+        }
+        f.file.refreshIDMap();
+        MemoryStorage storage = new MemoryStorage();
+        CheckerBlockEntity source = create(helper);
+        var player = player(helper);
+        CheckerMenu sending = new CheckerMenu(1, player.getInventory(), source);
+        CheckerMenu receiving = new CheckerMenu(1, player.getInventory(), create(helper));
+        source.scanInventory(f.file, f.data, new InventoryCheck(storage));
+        sending.writeStateChanges(false).forEach(receiving::readState);
+        var oldCatalog = receiving.getCatalogRows();
+        long oldRevision = receiving.getCatalogRevision();
+
+        f.quest.removeTask(f.task);
+        f.quest.removeTask(removed);
+        f.quest.addTask(f.task);
+        f.quest.addTask(new ItemTask(f.file.newID(), f.quest).setStackAndCount(new ItemStack(Items.GOLD_INGOT), 10));
+        edited.setStackAndCount(new ItemStack(Items.IRON_INGOT), 11);
+        f.file.refreshIDMap();
+        source.scanInventory(f.file, f.data, new InventoryCheck(storage));
+        var updates = sending.writeStateChanges(false);
+        helper.assertTrue(updates.size() == 1 && updates.getFirst().getBoolean("delta")
+                        && updates.getFirst().getList("rows", 10).size() == 5,
+                "Add/remove/reorder/definition edit resent the whole catalog");
+        updates.forEach(receiving::readState);
+        helper.assertTrue(receiving.getCatalogRows().equals(source.getRows())
+                        && receiving.getCatalogRevision() == oldRevision + 1 && oldCatalog.getFirst().taskId() == f.task.id,
+                "Catalog patch lost ordering, metadata, or its atomic revision");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void largeStockDeltaPublishesOnlyAfterFinalChunk(GameTestHelper helper) {
+        Fixture f = fixture(helper);
+        for (int i = 1; i <= CheckerBlockEntity.CATALOG_CHUNK_SIZE; i++) {
+            f.quest.addTask(new ItemTask(f.file.newID(), f.quest).setStackAndCount(new ItemStack(Items.IRON_INGOT), 10));
+        }
+        f.file.refreshIDMap();
+        MemoryStorage storage = new MemoryStorage();
+        CheckerBlockEntity source = create(helper);
+        var player = player(helper);
+        CheckerMenu sending = new CheckerMenu(1, player.getInventory(), source);
+        CheckerMenu receiving = new CheckerMenu(1, player.getInventory(), create(helper));
+        source.scanInventory(f.file, f.data, new InventoryCheck(storage));
+        sending.writeStateChanges(false).forEach(receiving::readState);
+        long oldRevision = receiving.getCatalogRevision();
+
+        storage.stacks.add(AEItemKey.of(Items.IRON_INGOT), 5);
+        source.scanInventory(f.file, f.data, new InventoryCheck(storage));
+        var updates = sending.writeStateChanges(false);
+        helper.assertTrue(updates.size() == 2 && updates.getFirst().getBoolean("delta")
+                        && updates.getFirst().getList("rows", 10).size() == CheckerBlockEntity.CATALOG_CHUNK_SIZE
+                        && !updates.getFirst().getList("rows", 10).getCompound(0).contains("title"),
+                "Stock update was unbounded or included catalog metadata");
+        receiving.readState(updates.getFirst());
+        helper.assertTrue(receiving.getCatalogRows().getFirst().available() == 0,
+                "A partial stock delta became visible");
+        receiving.readState(updates.getLast());
+        helper.assertTrue(receiving.getCatalogRows().equals(source.getRows())
+                        && receiving.getCatalogRevision() == oldRevision && receiving.getStockRevision() == 1,
+                "Stock chunks did not publish together with the original catalog revision");
+        helper.succeed();
+    }
+
     private static CheckerBlockEntity create(GameTestHelper helper) {
         CheckerBlockEntity entity = new CheckerBlockEntity(BlockPos.ZERO, NexusContent.CHECKER.get().defaultBlockState());
         entity.setLevel(helper.getLevel());
@@ -500,8 +644,12 @@ public final class CheckerGameTests {
 
     private static final class MemoryStorage implements MEStorage {
         private final KeyCounter stacks = new KeyCounter();
+        private int reads;
         @Override public Component getDescription() { return Component.empty(); }
-        @Override public void getAvailableStacks(KeyCounter output) { output.addAll(stacks); }
+        @Override public void getAvailableStacks(KeyCounter output) {
+            reads++;
+            output.addAll(stacks);
+        }
         @Override public long insert(AEKey key, long amount, Actionable mode, IActionSource source) {
             throw new AssertionError("Checker must never insert into AE");
         }

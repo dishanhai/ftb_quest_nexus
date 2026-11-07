@@ -1,5 +1,6 @@
 package com.dishanhai.ftb_quest_nexus.api.ftbq;
 
+import appeng.api.stacks.AEKey;
 import dev.ftb.mods.ftbquests.quest.TeamData;
 import dev.ftb.mods.ftbquests.quest.task.FluidTask;
 import dev.ftb.mods.ftbquests.quest.task.ItemTask;
@@ -12,7 +13,12 @@ public final class ConsumableTask {
 
     public static boolean supported(Task task) {
         return task instanceof ItemTask item && item.consumesResources() && !item.isOnlyFromCrafting()
-                || task instanceof FluidTask fluid && fluid.getFluid() != Fluids.EMPTY;
+                || task instanceof FluidTask fluid && fluid.getFluid() != Fluids.EMPTY
+                || task instanceof ExactStorageTarget target && task.consumesResources() && target.storageKey() != null;
+    }
+
+    public interface ExactStorageTarget {
+        AEKey storageKey();
     }
 
     public static boolean canSubmit(TeamData data, Task task) {

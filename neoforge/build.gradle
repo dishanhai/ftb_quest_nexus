@@ -17,6 +17,8 @@ repositories {
 
 def sharedJava = fileTree('../src/main/java') {
     include 'com/dishanhai/ftb_quest_nexus/api/ftbq/**'
+    include 'com/dishanhai/ftb_quest_nexus/api/BindingTransfer.java'
+    include 'com/dishanhai/ftb_quest_nexus/client/FtbqChoiceRewardScreen.java'
     include 'com/dishanhai/ftb_quest_nexus/client/HeaderButtonLayout.java'
     include 'com/dishanhai/ftb_quest_nexus/client/glass/GlassUiPolicy.java'
 }
@@ -30,6 +32,7 @@ tasks.named('compileJava') { source sharedJava }
 tasks.named('sourcesJar') { from sharedJava }
 
 def shBetterUiJar = file(findProperty('shBetterUiJar') ?: "../../SH-Better-UI/neoforge/build/libs/sh_better_ui-neoforge-${minecraft_version}-${sh_better_ui_version}.jar")
+def chemicalMods = files('libs/Mekanism-1.21.1-10.7.19.85.jar', 'libs/Applied-Mekanistics-1.6.3.jar')
 
 tasks.named('compileJava') {
     doFirst {
@@ -47,6 +50,8 @@ dependencies {
             'libs/guideme-21.1.22.jar')
     implementation files(shBetterUiJar)
     compileOnly files('libs/Jade-1.21.1-NeoForge-15.10.6.jar')
+    compileOnly chemicalMods
+    if (providers.gradleProperty('mekanismRuntime').isPresent()) runtimeOnly chemicalMods
     runtimeOnly 'thedarkcolour:kotlinforforge-neoforge:5.10.0'
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -94,7 +99,7 @@ tasks.register('verifyModJar') {
         def artifact = tasks.named('jar').get().archiveFile.get().asFile
         def zip = new java.util.zip.ZipFile(artifact)
         try {
-            ['META-INF/neoforge.mods.toml', 'ftb_quest_nexus.mixins.json',
+            ['META-INF/neoforge.mods.toml', 'ftb_quest_nexus.ftb_quests.mixins.json',
              'com/dishanhai/ftb_quest_nexus/QuestNexus.class',
              'data/ftb_quest_nexus/loot_table/blocks/ftbq_ae_submitter.json',
              'data/ftb_quest_nexus/recipe/ftbq_ae_submitter.json'].each {
@@ -105,7 +110,8 @@ tasks.register('verifyModJar') {
                 it.name.startsWith('kotlin/') || it.name.startsWith('kotlinx/') || it.name.startsWith('thedarkcolour/') ||
                 it.name.startsWith('com/dishanhai/sh_better_ui/') ||
                 it.name.startsWith('assets/sh_better_ui/') || it.name.startsWith('appeng/') ||
-                it.name.startsWith('dev/ftb/') || it.name.contains('GameTests')
+                it.name.startsWith('dev/ftb/') || it.name.startsWith('mekanism/') ||
+                it.name.startsWith('me/ramidzkh/mekae2/') || it.name.contains('GameTests')
             }.collect { it.name }
             if (!forbidden.isEmpty()) throw new GradleException("Unexpected mod entries: ${forbidden.take(5)}")
         } finally { zip.close() }

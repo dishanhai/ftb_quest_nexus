@@ -2,9 +2,6 @@ package com.dishanhai.ftb_quest_nexus.network;
 
 import com.dishanhai.ftb_quest_nexus.QuestNexus;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
-import dev.ftb.mods.ftbquests.quest.ServerQuestFile;
-import com.dishanhai.ftb_quest_nexus.api.ftbq.ConsumableTask;
-import dev.ftb.mods.ftbquests.quest.task.Task;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -26,9 +23,7 @@ public record FtbqQueueTaskPacket(UUID submitterId, long taskId) implements Cust
     @Override public Type<FtbqQueueTaskPacket> type() { return TYPE; }
 
     public static void handle(FtbqQueueTaskPacket packet, IPayloadContext context) {
-        if (!(context.player() instanceof ServerPlayer player) || ServerQuestFile.INSTANCE == null) return;
-        Task task = ServerQuestFile.INSTANCE.getTask(packet.taskId);
-        if (!ConsumableTask.supported(task)) return;
+        if (!(context.player() instanceof ServerPlayer player)) return;
         SubmitterBlockEntity.queueTask(player, packet.submitterId, packet.taskId);
     }
 }

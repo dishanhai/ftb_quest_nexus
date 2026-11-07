@@ -3,6 +3,8 @@ package com.dishanhai.ftb_quest_nexus.client;
 import com.dishanhai.ftb_quest_nexus.QuestNexus;
 import com.dishanhai.ftb_quest_nexus.NexusContent;
 import com.dishanhai.ftb_quest_nexus.client.glass.QuestUiHooks;
+import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalPicker;
+import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalTask;
 import com.dishanhai.sh_better_ui.client.blur.GaussBlur;
 import com.dishanhai.sh_better_ui.client.glass.GlassTooltip;
 import net.minecraft.client.Minecraft;
@@ -29,6 +31,7 @@ public final class NexusClient {
     @SubscribeEvent
     public static void setup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
+            if (ChemicalTask.isAvailable()) ChemicalPicker.register();
             GaussBlur.allowScreen(screen -> screen instanceof SubmitterScreen || screen instanceof CheckerScreen
                     || QuestUiHooks.isGlass(screen));
             // Claim the event before other tooltip renderers draw text into the blur input.

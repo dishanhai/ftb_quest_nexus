@@ -29,10 +29,14 @@ public final class SubmitterMenu extends AbstractContainerMenu {
     private int page;
     private int pageCount = 1;
     private List<QueueRow> rows = List.of();
-    private CompoundTag lastState;
+    private CompoundTag lastSummary;
+    private SubmitterBlockEntity.QueuePage lastPage;
+    private long lastQueueRevision;
     private List<Long> queuedTaskIds = List.of();
+    private long[] encodedQueueIds = new long[0];
     private long queueRevision;
     private Set<Long> searchMatches;
+    private List<Long> filteredIds;
     private int matchedCount;
     private boolean filtering;
     public SubmitterMenu(int id, Inventory inventory, FriendlyByteBuf data) {
@@ -64,22 +68,28 @@ public final class SubmitterMenu extends AbstractContainerMenu {
         super.broadcastChanges();
         if (!(viewer instanceof ServerPlayer serverPlayer) || !stillValid(viewer)) return;
         List<Long> currentIds = submitter.getQueuedTaskIds();
-        if (!currentIds.equals(queuedTaskIds)) {
-            queuedTaskIds = currentIds;
+        boolean queueChanged = currentIds != queuedTaskIds && !currentIds.equals(queuedTaskIds);
+        queuedTaskIds = currentIds;
+        if (queueChanged) {
             queueRevision++;
+            encodedQueueIds = currentIds.stream().mapToLong(Long::longValue).toArray();
+            refreshFilteredIds();
         }
-        CompoundTag state = submitter.writeQueueState(page, searchMatches);
-        state.putLongArray("queueIds", queuedTaskIds.stream().mapToLong(Long::longValue).toArray());
+        var summary = submitter.menuSummary();
+        var currentPage = submitter.queuePage(page, filteredIds == null ? currentIds : filteredIds, filteredIds != null);
+        page = currentPage.page();
+        pageCount = currentPage.pages();
+        matchedCount = currentPage.matched();
+        filtering = currentPage.filtering();
+        if (queueRevision == lastQueueRevision && currentPage.equals(lastPage) && summary.equals(lastSummary)) return;
+        CompoundTag state = submitter.writeQueueState(summary.copy(), currentPage);
+        state.putLongArray("queueIds", encodedQueueIds);
         state.putLong("queueRevision", queueRevision);
-        page = state.getInt("page");
-        pageCount = state.getInt("pages");
-        matchedCount = state.getInt("matched");
-        filtering = state.getBoolean("filtering");
-        if (!state.equals(lastState)) {
-            lastState = state;
-            NexusNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> serverPlayer),
-                    new SubmitterStatePacket(containerId, submitter.getBlockPos(), state));
-        }
+        lastQueueRevision = queueRevision;
+        lastPage = currentPage;
+        lastSummary = summary;
+        NexusNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> serverPlayer),
+                new SubmitterStatePacket(containerId, submitter.getBlockPos(), state));
     }
     public void readState(CompoundTag state) {
         submitter.readClientState(state);
@@ -120,10 +130,16 @@ public final class SubmitterMenu extends AbstractContainerMenu {
                 searchMatches.add(queuedTaskIds.get(i));
             }
         } else searchMatches = null;
+        refreshFilteredIds();
         page = 0;
         broadcastChanges();
         return true;
     }
+
+    private void refreshFilteredIds() {
+        filteredIds = searchMatches == null ? null : queuedTaskIds.stream().filter(searchMatches::contains).toList();
+    }
+
     public int getPageCount() { return pageCount; }
     public List<QueueRow> getRows() { return rows; }
     public record QueueRow(long taskId, Component title, boolean valid, boolean fluid, long progress, long required,

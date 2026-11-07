@@ -37,8 +37,14 @@ class TaskQueueTest {
         queue.add(10);
         List<Long> snapshot = queue.list();
         assertThrows(UnsupportedOperationException.class, () -> snapshot.add(11L));
+        assertFalse(queue.add(10));
+        assertFalse(queue.remove(11));
+        assertSame(snapshot, queue.list());
         queue.add(12);
         assertEquals(List.of(10L), snapshot);
+        assertEquals(List.of(10L, 12L), queue.list());
+        assertTrue(queue.remove(10));
+        assertEquals(List.of(12L), queue.list());
     }
 
     @Test void clearRemoveAndEmptyLoadHaveExplicitResults() {

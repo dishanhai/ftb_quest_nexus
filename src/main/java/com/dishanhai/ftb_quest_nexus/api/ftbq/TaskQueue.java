@@ -8,21 +8,28 @@ import java.util.stream.Collectors;
 /** Author: dishanhai. Ordered task IDs with the original unsigned-hex save format. */
 public final class TaskQueue {
     private final Set<Long> ids = new LinkedHashSet<>();
+    private List<Long> snapshot = List.of();
 
     public List<Long> list() {
-        return List.copyOf(ids);
+        if (snapshot == null) snapshot = List.copyOf(ids);
+        return snapshot;
     }
 
     public boolean add(long id) {
-        return id != 0L && ids.add(id);
+        if (id == 0L || !ids.add(id)) return false;
+        snapshot = null;
+        return true;
     }
 
     public boolean remove(long id) {
-        return ids.remove(id);
+        if (!ids.remove(id)) return false;
+        snapshot = null;
+        return true;
     }
 
     public void clear() {
         ids.clear();
+        snapshot = List.of();
     }
 
     public int size() {
@@ -38,7 +45,7 @@ public final class TaskQueue {
     }
 
     public void load(String text) {
-        ids.clear();
+        clear();
         if (text == null || text.isBlank()) return;
         for (String part : text.split(",")) {
             try {

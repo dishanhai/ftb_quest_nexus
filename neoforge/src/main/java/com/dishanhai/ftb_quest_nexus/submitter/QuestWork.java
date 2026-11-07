@@ -8,6 +8,7 @@ import appeng.api.stacks.AEFluidKey;
 import appeng.api.storage.MEStorage;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.FtbqRewardBuffer;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.ConsumableTask;
+import com.dishanhai.ftb_quest_nexus.api.ftbq.SubmitterQuestIndex;
 import dev.ftb.mods.ftbquests.integration.item_filtering.ItemMatchingSystem;
 import dev.ftb.mods.ftbquests.quest.TeamData;
 import dev.ftb.mods.ftbquests.quest.loot.WeightedReward;
@@ -34,10 +35,34 @@ import java.util.UUID;
 final class QuestWork {
     private QuestWork() {}
 
+    static Submission match(MEStorage storage, TeamData data, IActionSource source, ItemKeys keys,
+                            SubmitterQuestIndex index) {
+        for (var group : index.matchQuests()) {
+            if (!data.canStartTasks(group.quest()) || !data.areDependenciesComplete(group.quest())) continue;
+            Submission submission = firstSubmission(storage, data, source, keys, group.tasks());
+            if (submission != null) return submission;
+        }
+        return null;
+    }
+
+    static Submission firstSubmission(MEStorage storage, TeamData data, IActionSource source, ItemKeys keys,
+                                      List<Task> candidates) {
+        for (Task task : candidates) {
+            long amount = extract(storage, data, task, source, keys);
+            if (amount > 0) return new Submission(task, amount);
+        }
+        return null;
+    }
+
+    record Submission(Task task, long amount) {}
+
     static long extract(MEStorage storage, TeamData data, Task task, IActionSource source, ItemKeys keys) {
         if (!ConsumableTask.supported(task) || !ConsumableTask.canSubmit(data, task)) return 0;
         long remaining = task.getMaxProgress() - data.getProgress(task);
         if (remaining <= 0) return 0;
+        if (task instanceof ConsumableTask.ExactStorageTarget target) {
+            return storage.extract(target.storageKey(), remaining, Actionable.MODULATE, source);
+        }
         if (task instanceof FluidTask fluid) {
             FluidStack target = new FluidStack(fluid.getFluid(), 1);
             target.applyComponents(fluid.getFluidDataComponentPatch());
@@ -67,19 +92,19 @@ final class QuestWork {
 
     /** Snapshot fallback keys once per work pass, only when exact extraction cannot finish. */
     static final class ItemKeys {
-        private final List<AEItemKey> all = new ArrayList<>();
-        private final Map<Item, List<AEItemKey>> byItem = new HashMap<>();
-        private boolean loaded;
+        private List<AEItemKey> all;
+        private Map<Item, List<AEItemKey>> byItem;
 
         List<AEItemKey> candidates(MEStorage storage, Item item) {
-            if (!loaded) {
+            if (all == null) {
+                all = new ArrayList<>();
+                byItem = new HashMap<>();
                 for (var entry : storage.getAvailableStacks()) {
                     if (entry.getLongValue() > 0 && entry.getKey() instanceof AEItemKey key) {
                         all.add(key);
                         byItem.computeIfAbsent(key.getItem(), ignored -> new ArrayList<>()).add(key);
                     }
                 }
-                loaded = true;
             }
             return item == null ? all : byItem.getOrDefault(item, List.of());
         }
@@ -88,7 +113,7 @@ final class QuestWork {
     static long claim(MEStorage storage, TeamData data, UUID playerId, Reward reward,
                       ServerLevel level, BlockEntity blockEntity, FtbqRewardBuffer<AEItemKey> pending,
                       IActionSource source, Runnable changed) {
-        if (!canClaim(reward)) return 0;
+        if (!canClaimItem(reward)) return 0;
         List<ItemStack> stacks = new ArrayList<>();
         ServerPlayer player = level.getServer().getPlayerList().getPlayer(playerId);
         if (!collectItems(reward, stacks, playerId, player, level, blockEntity)) return 0;
@@ -106,18 +131,30 @@ final class QuestWork {
         return pending.flush((key, amount) -> storage.insert(key, amount, Actionable.MODULATE, source), changed);
     }
 
-    static boolean canClaim(Reward reward) {
-        return isItemRewardTree(reward, new HashSet<>());
+    static void claimExperience(TeamData data, UUID playerId, Reward reward) {
+        if (playerId == null || data.getClaimType(playerId, reward) != RewardClaimType.CAN_CLAIM) return;
+        for (ServerPlayer player : data.getOnlineMembers()) {
+            if (playerId.equals(player.getUUID())) {
+                data.claimReward(player, reward, false);
+                return;
+            }
+        }
+    }
+
+    static boolean canClaimItem(Reward reward) {
+        if (!SubmitterQuestIndex.supportsItemRewardType(reward)) return false;
+        return reward.getClass() == ItemReward.class || isItemRewardTree(reward, new HashSet<>());
     }
 
     private static boolean isItemRewardTree(Reward reward, Set<Reward> visiting) {
-        if (reward == null || reward instanceof ChoiceReward || !visiting.add(reward)) return false;
+        if (!SubmitterQuestIndex.supportsItemRewardType(reward)) return false;
+        if (reward.getClass() == ItemReward.class) return true;
+        if (!visiting.add(reward)) return false;
         try {
-            if (reward.getClass() == ItemReward.class) return true;
-            if (reward.getClass() != RandomReward.class && reward.getClass() != LootReward.class) return false;
             RandomReward random = (RandomReward) reward;
-            if (random.getTable() == null) return false;
-            for (WeightedReward entry : random.getTable().getWeightedRewards()) {
+            var table = random.getTable();
+            if (table == null) return false;
+            for (WeightedReward entry : table.getWeightedRewards()) {
                 if (!isItemRewardTree(entry.getReward(), visiting)) return false;
             }
             return true;
@@ -129,8 +166,10 @@ final class QuestWork {
     private static boolean collectItems(Reward reward, List<ItemStack> stacks, UUID playerId,
                                         ServerPlayer player, ServerLevel level, BlockEntity blockEntity) {
         if (reward instanceof RandomReward random) {
-            for (WeightedReward selected : random.getTable().generateWeightedRandomRewards(
-                    level.getRandom(), 1, random instanceof LootReward)) {
+            var table = random.getTable();
+            var selectedRewards = random instanceof AllTableReward ? table.getWeightedRewards()
+                    : table.generateWeightedRandomRewards(level.getRandom(), 1, random instanceof LootReward);
+            for (WeightedReward selected : selectedRewards) {
                 if (!collectItems(selected.getReward(), stacks, playerId, player, level, blockEntity)) return false;
             }
             // Empty loot is a consumed roll, never permission to roll repeatedly.

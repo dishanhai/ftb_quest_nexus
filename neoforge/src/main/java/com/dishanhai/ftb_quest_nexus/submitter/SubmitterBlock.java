@@ -1,12 +1,16 @@
 package com.dishanhai.ftb_quest_nexus.submitter;
 
+import appeng.api.implementations.parts.ICablePart;
+import appeng.api.parts.IPartItem;
 import com.dishanhai.ftb_quest_nexus.NexusContent;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Item;
@@ -48,6 +52,15 @@ public final class SubmitterBlock extends BaseEntityBlock {
     @Override public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
         return level.isClientSide ? null : createTickerHelper(type, NexusContent.BLOCK_ENTITY.get(), SubmitterBlockEntity::serverTick);
     }
+    @Override
+    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
+                                              InteractionHand hand, BlockHitResult hit) {
+        if (stack.getItem() instanceof IPartItem<?> part && ICablePart.class.isAssignableFrom(part.getPartClass())) {
+            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+        }
+        return super.useItemOn(stack, state, level, pos, player, hand, hit);
+    }
+
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof SubmitterBlockEntity submitter) {
             serverPlayer.openMenu(submitter, pos);
@@ -55,6 +68,6 @@ public final class SubmitterBlock extends BaseEntityBlock {
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
     @Override public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        for (int i = 1; i <= 8; i++) tooltip.add(Component.translatable("tooltip.ftb_quest_nexus.submitter." + i));
+        for (int i = 1; i <= 9; i++) tooltip.add(Component.translatable("tooltip.ftb_quest_nexus.submitter." + i));
     }
 }

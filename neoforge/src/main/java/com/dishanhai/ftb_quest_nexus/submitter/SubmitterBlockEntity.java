@@ -10,12 +10,17 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.storage.MEStorage;
 import appeng.api.util.AECableType;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.FtbqRewardBuffer;
+import com.dishanhai.ftb_quest_nexus.api.ftbq.ChoiceRewardNotices;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.FtbqAutoClaimDeferral;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.FtbqSubmitterToastSuppressor;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.TaskQueue;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.ConsumableTask;
+import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalTask;
+import com.dishanhai.ftb_quest_nexus.api.ftbq.SubmitterQuestIndex;
 import com.dishanhai.ftb_quest_nexus.NexusContent;
+import com.dishanhai.ftb_quest_nexus.api.BindingTransfer;
 import dev.ftb.mods.ftbquests.quest.*;
+import dev.ftb.mods.ftbquests.quest.reward.ChoiceReward;
 import dev.ftb.mods.ftbquests.quest.reward.Reward;
 import dev.ftb.mods.ftbquests.quest.reward.RewardClaimType;
 import dev.ftb.mods.ftbquests.quest.task.ItemTask;
@@ -59,11 +64,15 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
     private boolean online;
     private long lastSubmitted;
     private long lastSubmittedFluid;
+    private long lastSubmittedChemical;
     private long lastClaimedRewards;
     private int queueSize;
     private String statusKey = "unbound";
     private long[] statusArgs = new long[0];
     private CompoundTag lastClientState;
+    private List<Long> scopedTaskIds = List.of();
+    private Set<Long> scopedRewardQuests = Set.of();
+    private long scopeRevision;
 
     public SubmitterBlockEntity(BlockPos pos, BlockState state) {
         super(NexusContent.BLOCK_ENTITY.get(), pos, state);
@@ -102,14 +111,18 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
 
     @Override public void onChunkUnloaded() { unloadNode(); super.onChunkUnloaded(); }
     @Override public void setRemoved() { unloadNode(); super.setRemoved(); }
-    public static void clearLoadedSubmitters() { LOADED.clear(); }
+    public static void clearLoadedSubmitters() {
+        LOADED.clear();
+        SubmitterQuestIndex.clear();
+        ChoiceRewardNotices.clear();
+    }
     public IManagedGridNode getMainNode() { return mainNode; }
     @Override public IGridNode getGridNode(Direction side) { return mainNode.getNode(); }
     @Override public IGridNode getActionableNode() { return mainNode.getNode(); }
     @Override public AECableType getCableConnectionType(Direction side) { return AECableType.SMART; }
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, SubmitterBlockEntity entity) {
-        if (level.isClientSide || level.getGameTime() % 20 != 0) return;
+        if (level.isClientSide || Math.floorMod(level.getGameTime(), 20) != Math.floorMod(pos.hashCode(), 20)) return;
         entity.online = entity.mainNode.isOnline();
         if (state.hasProperty(SubmitterBlock.ONLINE) && state.getValue(SubmitterBlock.ONLINE) != entity.online) {
             level.setBlock(pos, state.setValue(SubmitterBlock.ONLINE, entity.online), 2);
@@ -126,24 +139,15 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
     }
 
     public boolean applyAction(ServerPlayer player, int action) {
-        if (level == null || level.isClientSide || player.level() != level
-                || !worldPosition.closerToCenterThan(player.position(), 8.0)
-                || !canManage(player)) return false;
+        if (!canReach(player) || !canManage(player)) return false;
         switch (action) {
             case 0 -> {
-                // A remaining member of the bound team can replace a reward player who left.
                 if (!pendingRewards.isEmpty()) { status("pending_rebind"); break; }
-                TeamData data = playerData(player);
-                if (data == null) { status("quests_unavailable"); break; }
-                if (!data.getTeamId().equals(uuid(teamIdText))) {
-                    queue.clear();
-                    matchedTasks.clear();
-                    matching = false;
+                UUID owner = uuid(rewardPlayerIdText);
+                if (owner != null && !owner.equals(player.getUUID())) {
+                    return BindingTransfer.request(this, player, () -> uuid(rewardPlayerIdText), this::bindPlayer);
                 }
-                teamIdText = data.getTeamId().toString();
-                rewardPlayerIdText = player.getUUID().toString();
-                mainNode.setOwningPlayer(player);
-                status("bound");
+                return bindPlayer(player);
             }
             case 1 -> {
                 if (matching) return false;
@@ -171,6 +175,31 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
         return data != null && (bound == null || bound.equals(data.getTeamId()));
     }
 
+    private boolean canReach(ServerPlayer player) {
+        return !isRemoved() && level != null && !level.isClientSide && player.level() == level
+                && worldPosition.closerToCenterThan(player.position(), 8.0);
+    }
+
+    private boolean bindPlayer(ServerPlayer player) {
+        if (!pendingRewards.isEmpty()) return false;
+        TeamData data = playerData(player);
+        UUID teamId = uuid(teamIdText);
+        if (data == null || teamId != null && !teamId.equals(data.getTeamId())) return false;
+        if (teamId == null) {
+            queue.clear();
+            matchedTasks.clear();
+            matching = false;
+        }
+        teamIdText = data.getTeamId().toString();
+        rewardPlayerIdText = player.getUUID().toString();
+        mainNode.setOwningPlayer(player);
+        status("bound");
+        queueSize = displayedQueue().size();
+        setChanged();
+        syncState();
+        return true;
+    }
+
     private static TeamData playerData(ServerPlayer player) {
         return player == null || ServerQuestFile.INSTANCE == null ? null : ServerQuestFile.INSTANCE.getOrCreateTeamData(player);
     }
@@ -178,6 +207,7 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
     private void runQueuedWork() {
         lastSubmitted = 0;
         lastSubmittedFluid = 0;
+        lastSubmittedChemical = 0;
         lastClaimedRewards = 0;
         if (!online) { status("offline"); return; }
         IGrid grid = mainNode.getGrid();
@@ -198,75 +228,177 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
         UUID currentTeam = FTBTeamsAPI.api().getManager().getTeamForPlayerID(playerId)
                 .map(team -> team.getTeamId()).orElse(null);
         if (!teamId.equals(currentTeam)) { status("player_left"); return; }
-        Set<Quest> rewardQuests = rewardQuests(file);
-        Set<Quest> deferredAutoClaims = new LinkedHashSet<>();
-        List<Task> candidates = new ArrayList<>();
-        if (matching) {
-            file.forAllQuests(quest -> {
-                if (data.canStartTasks(quest) && data.areDependenciesComplete(quest)) {
-                    candidates.addAll(quest.getTasks());
-                }
-            });
-        } else {
-            for (long taskId : queue.list()) {
-                Task task = file.getTask(taskId);
-                if (!ConsumableTask.supported(task)) {
-                    queue.remove(taskId);
-                    setChanged();
-                } else candidates.add(task);
-            }
+        boolean allRewards = !matching && !claimOnlyQueuedRewards;
+        List<Long> taskIds = displayedQueue().list();
+        if (!matching && !allRewards && taskIds.isEmpty()) {
+            scopedTaskIds = List.of();
+            scopedRewardQuests = Set.of();
+            queueSize = 0;
+            if (lastClaimedRewards > 0) status("worked", 0, lastClaimedRewards);
+            else status("waiting");
+            return;
         }
+        SubmitterQuestIndex index = SubmitterQuestIndex.forFile(file);
+        Set<Long> rewardQuests = allRewards ? Set.of() : queuedRewardQuests(file, taskIds, index.revision());
+        List<Task> candidates = matching ? List.of() : queuedCandidates(file, taskIds);
         QuestWork.ItemKeys itemKeys = new QuestWork.ItemKeys();
-        for (Task task : candidates) {
-            long submitted = QuestWork.extract(storage, data, task, source, itemKeys);
-            if (submitted <= 0) continue;
-            if (matching) {
-                matchedTasks.add(task.id);
-                rewardQuests.add(task.getQuest());
-            }
-            deferredAutoClaims.addAll(FtbqAutoClaimDeferral.run(data,
-                    reward -> rewardQuests.contains(reward.getQuest()) && QuestWork.canClaim(reward), () -> {
-                        if (suppressCompletionToast) FtbqSubmitterToastSuppressor.runSuppressed(() -> data.addProgress(task, submitted));
-                        else data.addProgress(task, submitted);
-                    }));
+        QuestWork.Submission submission = matching ? QuestWork.match(storage, data, source, itemKeys, index)
+                : QuestWork.firstSubmission(storage, data, source, itemKeys, candidates);
+        List<Quest> deferredAutoClaims;
+        long newlyMatchedQuestId = 0;
+        if (submission != null) {
+            Task task = submission.task();
+            long submitted = submission.amount();
+            long matchedQuestId = matching ? task.getQuest().id : 0;
+            if (matching) matchedTasks.add(task.id);
+            newlyMatchedQuestId = matchedQuestId;
+            deferredAutoClaims = FtbqAutoClaimDeferral.run(data, reward -> {
+                Quest quest = reward.getQuest();
+                return quest != null && (allRewards || quest.id == matchedQuestId || rewardQuests.contains(quest.id))
+                        && (reward instanceof ChoiceReward || SubmitterQuestIndex.isExperienceReward(reward)
+                            || QuestWork.canClaimItem(reward) && scopeIncludesItems(quest));
+            }, () -> {
+                if (suppressCompletionToast) FtbqSubmitterToastSuppressor.runSuppressed(() -> data.addProgress(task, submitted));
+                else data.addProgress(task, submitted);
+            });
             if (task instanceof FluidTask) lastSubmittedFluid = submitted;
+            else if (task instanceof ChemicalTask) lastSubmittedChemical = submitted;
             else lastSubmitted = submitted;
             setChanged();
-            break;
+            // Progress callbacks can edit the quest definitions during this work pass.
+            SubmitterQuestIndex updated = SubmitterQuestIndex.forFile(file);
+            if (matching && index != updated) updated.matchQuests();
+            index = updated;
+        } else {
+            deferredAutoClaims = List.of();
         }
-        claimRewards(rewardQuests, storage, data, playerId, source);
-        deferredAutoClaims.forEach(data::checkAutoCompletion);
+        Set<Long> questsToClaim = allRewards ? index.rewardQuestIds() : rewardQuests;
+        claimRewards(index, questsToClaim, newlyMatchedQuestId, storage, data, playerId, source);
+        if (!deferredAutoClaims.isEmpty()) {
+            // Keep experience claimable if the bound player could not receive it this tick.
+            FtbqAutoClaimDeferral.run(data, reward -> isExperiencePending(data, playerId, reward)
+                    || reward instanceof ChoiceReward && deferredAutoClaims.contains(reward.getQuest()), () -> {
+                for (Quest quest : deferredAutoClaims) {
+                    if (quest.canBeRepeated() && quest.getRewards().stream()
+                            .anyMatch(reward -> isExperiencePending(data, playerId, reward))) continue;
+                    data.checkAutoCompletion(quest);
+                }
+            });
+        }
+        ServerPlayer boundPlayer = level.getServer().getPlayerList().getPlayer(playerId);
+        if (boundPlayer != null) {
+            Map<Long, ChoiceReward> choices = new LinkedHashMap<>();
+            collectChoices(index, questsToClaim, data, playerId, choices);
+            if (newlyMatchedQuestId != 0 && !questsToClaim.contains(newlyMatchedQuestId)) {
+                collectChoices(index, Set.of(newlyMatchedQuestId), data, playerId, choices);
+            }
+            ChoiceRewardNotices.notifyReady(boundPlayer, data, choices, SubmitterBlockEntity::availableChoiceRewards);
+        }
         queueSize = displayedQueue().size();
         if (!pendingRewards.isEmpty()) status("pending_rewards");
+        else if (lastSubmittedChemical > 0) status("worked_chemical", lastSubmittedChemical, lastClaimedRewards);
         else if (lastSubmittedFluid > 0) status("worked_fluid", lastSubmittedFluid, lastClaimedRewards);
         else if (lastSubmitted > 0 || lastClaimedRewards > 0) status("worked", lastSubmitted, lastClaimedRewards);
         else if (matching) status("match_waiting");
         else if (queue.isEmpty()) status("waiting");
-        else status(candidates.stream().allMatch(data::isCompleted) ? "queue_done" : "missing_items");
+        else if (candidates.stream().allMatch(data::isCompleted)) status("queue_done");
+        else if (candidates.stream().anyMatch(task -> ConsumableTask.supported(task) && !data.isCompleted(task))) {
+            status("missing_items");
+        } else status("manual_targets");
     }
 
-    private Set<Quest> rewardQuests(ServerQuestFile file) {
-        Set<Quest> quests = new LinkedHashSet<>();
-        if (matching || claimOnlyQueuedRewards) {
-            for (Long id : displayedQueue().list()) {
-                Task task = file.getTask(id);
-                if (task != null && task.getQuest() != null) quests.add(task.getQuest());
-            }
-        } else file.forAllQuests(quests::add);
-        return quests;
-    }
-
-    private void claimRewards(Set<Quest> quests, MEStorage storage, TeamData data, UUID playerId, IActionSource source) {
-        if (!(level instanceof ServerLevel serverLevel)) return;
-        for (Quest quest : quests) {
-            if (!data.isCompleted(quest)) continue;
-            for (Reward reward : quest.getRewards()) {
-                if (data.getClaimType(playerId, reward) != RewardClaimType.CAN_CLAIM) continue;
-                lastClaimedRewards += QuestWork.claim(storage, data, playerId, reward, serverLevel,
-                        this, pendingRewards, source, this::setChanged);
-                if (!pendingRewards.isEmpty()) return;
+    private List<Task> queuedCandidates(ServerQuestFile file, List<Long> taskIds) {
+        if (taskIds.isEmpty()) return List.of();
+        List<Task> candidates = new ArrayList<>();
+        for (long taskId : taskIds) {
+            Task task = file.getTask(taskId);
+            if (SubmitterQuestIndex.supportsQueueTask(task)) candidates.add(task);
+            else {
+                queue.remove(taskId);
+                setChanged();
             }
         }
+        return candidates;
+    }
+
+    private Set<Long> queuedRewardQuests(ServerQuestFile file, List<Long> taskIds, long revision) {
+        if (scopeRevision != revision || scopedTaskIds != taskIds) {
+            Set<Long> quests = new LinkedHashSet<>();
+            for (long taskId : taskIds) {
+                Task task = file.getTask(taskId);
+                if (SubmitterQuestIndex.supportsQueueTask(task)) quests.add(task.getQuest().id);
+            }
+            scopedRewardQuests = quests;
+            scopedTaskIds = taskIds;
+            scopeRevision = revision;
+        }
+        return scopedRewardQuests;
+    }
+
+    public static Map<Long, ChoiceReward> availableChoiceRewards(ServerPlayer player) {
+        ServerQuestFile file = ServerQuestFile.INSTANCE;
+        TeamData data = playerData(player);
+        if (file == null || data == null || data.isLocked()) return Map.of();
+        UUID playerId = player.getUUID();
+        SubmitterQuestIndex index = SubmitterQuestIndex.forFile(file);
+        Map<Long, ChoiceReward> choices = new LinkedHashMap<>();
+        for (SubmitterBlockEntity entity : LOADED.values()) {
+            if (entity.isRemoved() || entity.level == null || entity.level.getServer() != player.getServer()
+                    || !playerId.equals(uuid(entity.rewardPlayerIdText))
+                    || !data.getTeamId().equals(uuid(entity.teamIdText))) continue;
+            Set<Long> quests = !entity.matching && !entity.claimOnlyQueuedRewards ? index.rewardQuestIds()
+                    : entity.queuedRewardQuests(file, entity.displayedQueue().list(), index.revision());
+            collectChoices(index, quests, data, playerId, choices);
+        }
+        return choices;
+    }
+
+    private static void collectChoices(SubmitterQuestIndex index, Set<Long> quests, TeamData data, UUID playerId,
+                                       Map<Long, ChoiceReward> choices) {
+        for (long questId : quests) {
+            SubmitterQuestIndex.RewardQuest quest = index.rewardQuest(questId);
+            if (quest == null || quest.choices().isEmpty() || !data.isCompleted(quest.quest())) continue;
+            for (ChoiceReward reward : quest.choices()) {
+                if (ChoiceRewardNotices.canChoose(data, playerId, reward)) choices.putIfAbsent(reward.id, reward);
+            }
+        }
+    }
+
+    private void claimRewards(SubmitterQuestIndex index, Set<Long> quests, long newlyMatchedQuestId,
+                              MEStorage storage, TeamData data, UUID playerId, IActionSource source) {
+        if (!(level instanceof ServerLevel serverLevel)) return;
+        for (long questId : quests) {
+            claimQuestRewards(index.rewardQuest(questId), storage, data, playerId, source, serverLevel);
+            if (!pendingRewards.isEmpty()) return;
+        }
+        if (newlyMatchedQuestId != 0 && !quests.contains(newlyMatchedQuestId)) {
+            claimQuestRewards(index.rewardQuest(newlyMatchedQuestId), storage, data, playerId, source, serverLevel);
+        }
+    }
+
+    private void claimQuestRewards(SubmitterQuestIndex.RewardQuest quest, MEStorage storage, TeamData data,
+                                   UUID playerId, IActionSource source, ServerLevel serverLevel) {
+        if (quest == null || quest.rewards().isEmpty() || !data.isCompleted(quest.quest())) return;
+        boolean claimItems = scopeIncludesItems(quest.quest());
+        for (Reward reward : quest.rewards()) {
+            if (SubmitterQuestIndex.isExperienceReward(reward)) {
+                QuestWork.claimExperience(data, playerId, reward);
+                continue;
+            }
+            if (!claimItems || data.getClaimType(playerId, reward) != RewardClaimType.CAN_CLAIM) continue;
+            lastClaimedRewards += QuestWork.claim(storage, data, playerId, reward, serverLevel,
+                    this, pendingRewards, source, this::setChanged);
+            if (!pendingRewards.isEmpty()) return;
+        }
+    }
+
+    private boolean scopeIncludesItems(Quest quest) {
+        return matching || !claimOnlyQueuedRewards || quest.getTasks().stream().anyMatch(ConsumableTask::supported);
+    }
+
+    private static boolean isExperiencePending(TeamData data, UUID playerId, Reward reward) {
+        return SubmitterQuestIndex.isExperienceReward(reward)
+                && data.getClaimType(playerId, reward) == RewardClaimType.CAN_CLAIM;
     }
 
     public static boolean queueTask(ServerPlayer player, UUID submitterId, long taskId) {
@@ -277,11 +409,20 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
                 || uuid(entity.teamIdText) == null) return false;
         ServerQuestFile file = ServerQuestFile.INSTANCE;
         Task task = file == null ? null : file.getTask(taskId);
-        if (!ConsumableTask.supported(task)) return false;
+        if (!SubmitterQuestIndex.supportsQueueTask(task)) return false;
+        Collection<Task> tasks = task.getQuest().getTasks();
         boolean added = false;
-        for (Task sibling : task.getQuest().getTasks()) {
+        boolean hasConsumable = false;
+        for (Task sibling : tasks) {
             if (ConsumableTask.supported(sibling)) {
+                hasConsumable = true;
                 added |= entity.queue.add(sibling.id);
+            }
+        }
+        if (!hasConsumable) {
+            List<Long> queued = entity.queue.list();
+            if (tasks.stream().noneMatch(sibling -> queued.contains(sibling.id))) {
+                added = entity.queue.add(task.id);
             }
         }
         entity.queueSize = entity.displayedQueue().size();
@@ -327,6 +468,7 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
     }
 
     public void loadUserData(CompoundTag tag, HolderLookup.Provider registries) {
+        lastClientState = null;
         teamIdText = tag.getString("teamIdText");
         rewardPlayerIdText = tag.getString("rewardPlayerIdText");
         if (uuid(tag.getString("submitterIdText")) != null) submitterIdText = tag.getString("submitterIdText");
@@ -392,6 +534,7 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
         tag.putString("submitterId", submitterIdText); tag.putBoolean("online", online);
         tag.putInt("queue", queueSize); tag.putLong("submitted", lastSubmitted); tag.putLong("rewards", lastClaimedRewards);
         tag.putLong("submittedFluid", lastSubmittedFluid); tag.putBoolean("matching", matching);
+        if (lastSubmittedChemical > 0) tag.putLong("submittedChemical", lastSubmittedChemical);
         tag.putBoolean("suppressToast", suppressCompletionToast); tag.putBoolean("queuedRewards", claimOnlyQueuedRewards);
         tag.putString("status", statusKey); tag.putLongArray("statusArgs", statusArgs);
         return tag;
@@ -406,16 +549,20 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
     public List<Long> getQueuedTaskIds() { return displayedQueue().list(); }
 
     public CompoundTag writeQueueState(int requestedPage, Set<Long> searchMatches) {
-        CompoundTag tag = writeClientState();
         List<Long> ids = getQueuedTaskIds();
         if (searchMatches != null) ids = ids.stream().filter(searchMatches::contains).toList();
-        tag.putInt("matched", ids.size());
-        tag.putBoolean("filtering", searchMatches != null);
+        return writeQueueState(writeClientState(), queuePage(requestedPage, ids, searchMatches != null));
+    }
+
+    CompoundTag menuSummary() {
+        return lastClientState == null ? writeClientState() : lastClientState;
+    }
+
+    QueuePage queuePage(int requestedPage, List<Long> ids, boolean filtering) {
         int pages = Math.max(1, (ids.size() + SubmitterMenu.PAGE_SIZE - 1) / SubmitterMenu.PAGE_SIZE);
         int page = Math.max(0, Math.min(requestedPage, pages - 1));
-        tag.putInt("page", page);
-        tag.putInt("pages", pages);
-        ListTag rows = new ListTag();
+        if (ids.isEmpty()) return new QueuePage(page, pages, 0, filtering, List.of());
+        List<SubmitterMenu.QueueRow> rows = new ArrayList<>(SubmitterMenu.PAGE_SIZE);
         ServerQuestFile file = ServerQuestFile.INSTANCE;
         UUID teamId = uuid(teamIdText);
         TeamData data = file == null || teamId == null ? null : file.getOrCreateTeamData(teamId);
@@ -423,28 +570,46 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
         for (int i = page * SubmitterMenu.PAGE_SIZE; i < end; i++) {
             long id = ids.get(i);
             Task task = file == null ? null : file.getTask(id);
-            boolean valid = ConsumableTask.supported(task);
+            boolean valid = SubmitterQuestIndex.supportsQueueTask(task);
             Component title = valid ? targetName(task) : Component.translatable(
                     "gui.ftb_quest_nexus.submitter.queue_detail.invalid", Long.toUnsignedString(id, 16));
+            rows.add(new SubmitterMenu.QueueRow(id, title, valid, task instanceof FluidTask, task instanceof ChemicalTask,
+                    valid && data != null ? data.getProgress(task) : 0, valid ? task.getMaxProgress() : 0,
+                    valid && data != null && data.isCompleted(task)));
+        }
+        return new QueuePage(page, pages, ids.size(), filtering, rows);
+    }
+
+    CompoundTag writeQueueState(CompoundTag tag, QueuePage page) {
+        tag.putInt("matched", page.matched());
+        tag.putBoolean("filtering", page.filtering());
+        tag.putInt("page", page.page());
+        tag.putInt("pages", page.pages());
+        ListTag rows = new ListTag();
+        for (var goal : page.rows()) {
             CompoundTag row = new CompoundTag();
-            row.putLong("id", id);
-            row.putString("title", Component.Serializer.toJson(title, level.registryAccess()));
-            row.putBoolean("valid", valid);
-            row.putBoolean("fluid", task instanceof FluidTask);
-            row.putLong("progress", valid && data != null ? data.getProgress(task) : 0);
-            row.putLong("required", valid ? task.getMaxProgress() : 0);
-            row.putBoolean("completed", valid && data != null && data.isCompleted(task));
+            row.putLong("id", goal.taskId());
+            row.putString("title", Component.Serializer.toJson(goal.title(), level.registryAccess()));
+            row.putBoolean("valid", goal.valid());
+            row.putBoolean("fluid", goal.fluid());
+            if (goal.chemical()) row.putBoolean("chemical", true);
+            row.putLong("progress", goal.progress());
+            row.putLong("required", goal.required());
+            row.putBoolean("completed", goal.completed());
             rows.add(row);
         }
         tag.put("rows", rows);
         return tag;
     }
 
+    record QueuePage(int page, int pages, int matched, boolean filtering, List<SubmitterMenu.QueueRow> rows) {}
+
     public void readClientState(CompoundTag tag) {
         teamIdText = tag.getString("teamId"); rewardPlayerIdText = tag.getString("playerId");
         submitterIdText = tag.getString("submitterId"); online = tag.getBoolean("online");
         queueSize = tag.getInt("queue"); lastSubmitted = tag.getLong("submitted"); lastClaimedRewards = tag.getLong("rewards");
         lastSubmittedFluid = tag.getLong("submittedFluid"); matching = tag.getBoolean("matching");
+        lastSubmittedChemical = tag.getLong("submittedChemical");
         suppressCompletionToast = tag.getBoolean("suppressToast"); claimOnlyQueuedRewards = tag.getBoolean("queuedRewards");
         statusKey = tag.getString("status"); statusArgs = tag.getLongArray("statusArgs");
     }
@@ -484,7 +649,7 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
             Task task = file == null ? null : file.getTask(id);
             if (file == null) detail.append(idText);
             else if (task == null) detail.append(Component.translatable(key + "invalid", idText));
-            else if (task instanceof ItemTask || task instanceof FluidTask) detail.append(targetName(task));
+            else if (SubmitterQuestIndex.supportsQueueTask(task)) detail.append(targetName(task));
             else detail.append(idText);
         }
         if (ids.size() > shown) detail.append(Component.translatable(key + "more", ids.size() - shown));
@@ -496,13 +661,18 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
     public int getQueueSize() { return queueSize; }
     public long getLastSubmitted() { return lastSubmitted; }
     public long getLastSubmittedFluid() { return lastSubmittedFluid; }
+    public long getLastSubmittedChemical() { return lastSubmittedChemical; }
     public boolean isMatching() { return matching; }
 
     private static Component targetName(Task task) {
+        if (task instanceof ChemicalTask chemical) return chemical.targetName();
         if (task instanceof FluidTask fluid) {
             return Component.translatable(fluid.getFluid().getFluidType().getDescriptionId());
         }
-        return ((ItemTask) task).getItemStack().getHoverName();
+        if (task instanceof ItemTask item && ConsumableTask.supported(item)) {
+            return item.getItemStack().getHoverName();
+        }
+        return task.getQuest().getTitle();
     }
     public long getLastClaimedRewards() { return lastClaimedRewards; }
     public boolean isSuppressCompletionToast() { return suppressCompletionToast; }

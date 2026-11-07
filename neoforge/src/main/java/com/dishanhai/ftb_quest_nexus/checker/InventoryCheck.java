@@ -6,6 +6,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.ConsumableTask;
+import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalTask;
 import dev.ftb.mods.ftbquests.integration.item_filtering.ItemMatchingSystem;
 import dev.ftb.mods.ftbquests.quest.TeamData;
 import dev.ftb.mods.ftbquests.quest.task.FluidTask;
@@ -22,40 +23,73 @@ import net.neoforged.neoforge.fluids.FluidUtil;
 
 /** Author: dishanhai. One read-only AE inventory snapshot per scan, in items and mB. */
 final class InventoryCheck {
+    private final MEStorage storage;
     private final KeyCounter items = new KeyCounter();
-    private final KeyCounter fluids = new KeyCounter();
     private final KeyCounter storedFluids = new KeyCounter();
     private final Map<Item, KeyCounter> itemsByType = new HashMap<>();
+    private boolean loaded;
+    private KeyCounter snapshot;
+    private KeyCounter fluids;
 
     InventoryCheck(MEStorage storage) {
-        for (var entry : storage.getAvailableStacks()) {
+        this.storage = storage;
+    }
+
+    private void loadStock() {
+        if (loaded) return;
+        for (var entry : snapshot()) {
             long amount = entry.getLongValue();
             if (amount <= 0) continue;
             AEKey key = entry.getKey();
             if (key instanceof AEFluidKey fluid) {
                 storedFluids.add(fluid, amount);
-                addFluid(fluid, amount);
             } else if (key instanceof AEItemKey item) {
                 items.add(item, amount);
                 itemsByType.computeIfAbsent(item.getItem(), ignored -> new KeyCounter()).add(item, amount);
-                // Read a single-item copy. Neither a drain nor an AE extraction is performed.
-                FluidStack contained = FluidUtil.getFluidContained(item.toStack()).orElse(FluidStack.EMPTY);
-                if (!contained.isEmpty()) {
-                    long volume = multiply(amount, contained.getAmount());
-                    addFluid(AEFluidKey.of(contained), volume);
-                }
+            }
+        }
+        loaded = true;
+    }
+
+    private KeyCounter snapshot() {
+        if (snapshot == null) snapshot = storage.getAvailableStacks();
+        return snapshot;
+    }
+
+    private void loadContainerFluids() {
+        if (fluids != null) return;
+        fluids = new KeyCounter();
+        fluids.addAll(storedFluids);
+        for (var entry : items) {
+            // The snapshot supplies counts; capabilities are read from a single-item copy.
+            AEItemKey item = (AEItemKey) entry.getKey();
+            FluidStack contained = FluidUtil.getFluidContained(item.toStack()).orElse(FluidStack.EMPTY);
+            if (!contained.isEmpty()) {
+                long volume = multiply(entry.getLongValue(), contained.getAmount());
+                addFluid(AEFluidKey.of(contained), volume);
             }
         }
     }
 
     long available(Task task) {
+        return countUpTo(task, Long.MAX_VALUE);
+    }
+
+    long countUpTo(Task task, long threshold) {
+        if (task instanceof ChemicalTask chemical) {
+            AEKey key = chemical.storageKey();
+            return key == null ? 0 : snapshot().get(key);
+        }
         if (task instanceof FluidTask fluid) {
             if (fluid.getFluid() == net.minecraft.world.level.material.Fluids.EMPTY) return 0;
+            loadStock();
+            loadContainerFluids();
             FluidStack target = new FluidStack(fluid.getFluid(), 1000);
             target.applyComponents(fluid.getFluidDataComponentPatch());
             return fluids.get(AEFluidKey.of(target));
         }
         if (!(task instanceof ItemTask item) || item.isOnlyFromCrafting()) return 0;
+        loadStock();
         ItemStack target = item.getItemStack();
         boolean filter = ItemMatchingSystem.INSTANCE.isItemFilter(target);
         long total = 0;
@@ -68,17 +102,19 @@ final class InventoryCheck {
         }
         KeyCounter candidates = !filter && !target.isEmpty() && item.getClass() == ItemTask.class
                 ? itemsByType.get(target.getItem()) : items;
-        if (candidates == null) return total;
+        if (candidates == null || total >= threshold) return total;
         for (var entry : candidates) {
             AEItemKey key = (AEItemKey) entry.getKey();
             if (filter && key.matches(target)) continue;
             if (item.test(key.toStack())) total = add(total, entry.getLongValue());
+            if (total >= threshold) break;
         }
         return total;
     }
 
     static boolean supported(Task task) {
-        return task instanceof FluidTask || task instanceof ItemTask item && !item.isOnlyFromCrafting();
+        return task instanceof FluidTask || task instanceof ItemTask item && !item.isOnlyFromCrafting()
+                || task instanceof ChemicalTask chemical && !chemical.consumesResources() && chemical.storageKey() != null;
     }
 
     static boolean complete(TeamData data, Task task, long available) {

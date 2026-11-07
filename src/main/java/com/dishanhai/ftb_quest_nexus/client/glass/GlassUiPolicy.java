@@ -10,7 +10,8 @@ public final class GlassUiPolicy {
     }
 
     public static boolean isQuestScreenClass(String name) {
-        return name != null && name.startsWith("dev.ftb.mods.ftbquests.client.gui.");
+        return name != null && (name.startsWith("dev.ftb.mods.ftbquests.client.gui.")
+                || name.equals("com.dishanhai.ftb_quest_nexus.client.FtbqChoiceRewardScreen"));
     }
 
     public static boolean isLibraryScreenClass(String name) {

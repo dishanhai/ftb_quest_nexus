@@ -8,7 +8,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-/** Author: dishanhai. Server-owned state and one bounded catalog chunk for an open checker menu. */
+/** Author: dishanhai. One bounded catalog or delta chunk for an open checker menu. */
 public record CheckerStatePacket(int containerId, BlockPos pos, CompoundTag state) implements CustomPacketPayload {
     public static final Type<CheckerStatePacket> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(QuestNexus.MOD_ID, "checker_state"));

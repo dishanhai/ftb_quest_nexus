@@ -1,5 +1,10 @@
 package com.dishanhai.ftb_quest_nexus;
 
+import appeng.api.AECapabilities;
+import com.dishanhai.ftb_quest_nexus.api.BindingTransfer;
+import com.dishanhai.ftb_quest_nexus.api.ftbq.ChoiceRewardNotices;
+import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalTask;
+import com.dishanhai.ftb_quest_nexus.network.FtbqChoiceRewardPackets;
 import com.dishanhai.ftb_quest_nexus.network.NexusNetwork;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
 import com.dishanhai.ftb_quest_nexus.config.ClientUiConfig;
@@ -7,9 +12,12 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.CreativeModeTab;
 
@@ -19,14 +27,31 @@ public final class QuestNexus {
     public static final String MOD_ID = "ftb_quest_nexus";
 
     public QuestNexus(IEventBus bus, ModContainer container) {
+        ChemicalTask.init();
         container.registerConfig(ModConfig.Type.CLIENT, ClientUiConfig.SPEC);
         NexusContent.BLOCKS.register(bus);
         NexusContent.ITEMS.register(bus);
         NexusContent.BLOCK_ENTITIES.register(bus);
         NexusContent.MENUS.register(bus);
         bus.addListener(NexusNetwork::register);
+        bus.addListener(QuestNexus::registerCapabilities);
         bus.addListener(QuestNexus::buildCreativeTab);
-        NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> SubmitterBlockEntity.clearLoadedSubmitters());
+        NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> {
+            BindingTransfer.register(event.getDispatcher());
+            ChoiceRewardNotices.register(event.getDispatcher(), SubmitterBlockEntity::availableChoiceRewards,
+                    FtbqChoiceRewardPackets::sendOpen);
+        });
+        NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> {
+            BindingTransfer.clear(event.getServer());
+            SubmitterBlockEntity.clearLoadedSubmitters();
+        });
+    }
+
+    private static void registerCapabilities(RegisterCapabilitiesEvent event) {
+        event.registerBlockEntity(AECapabilities.IN_WORLD_GRID_NODE_HOST, NexusContent.BLOCK_ENTITY.get(),
+                (submitter, context) -> submitter);
+        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, NexusContent.CHECKER_BLOCK_ENTITY.get(),
+                (checker, side) -> checker.energyInput());
     }
 
     private static void buildCreativeTab(BuildCreativeModeTabContentsEvent event) {

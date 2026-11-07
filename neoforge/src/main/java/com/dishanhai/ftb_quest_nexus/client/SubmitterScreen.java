@@ -1,5 +1,6 @@
 package com.dishanhai.ftb_quest_nexus.client;
 
+import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalTask;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterMenu;
 import com.dishanhai.sh_better_ui.client.blur.GaussBlur;
@@ -121,6 +122,9 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
                 } else if (task instanceof dev.ftb.mods.ftbquests.quest.task.FluidTask fluid) {
                     ids.add(BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString());
                     aliases.add(Component.translatable(fluid.getFluid().getFluidType().getDescriptionId()).getString());
+                } else if (task instanceof ChemicalTask chemical) {
+                    ids.add(chemical.chemicalId().toString());
+                    aliases.add(chemical.targetName().getString());
                 }
                 entries.add(new SearchIndex.Entry<>(id, name.isBlank() ? idText : name, ids, aliases));
             }
@@ -186,8 +190,11 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
         row(graphics, mouseX, mouseY, 10, 70, contentWidth,
                 Component.translatable(GUI + "player", identifier(be.getRewardPlayerIdText())), GlassPalette.TEXT_MUTED);
         row(graphics, mouseX, mouseY, 10, 84, contentWidth,
-                Component.translatable(GUI + "summary.resources", be.getQueueSize(), be.getLastSubmitted(),
-                        be.getLastSubmittedFluid(), be.getLastClaimedRewards()), GlassPalette.TEXT);
+                ChemicalTask.isAvailable()
+                        ? Component.translatable(GUI + "summary.chemical", be.getQueueSize(), be.getLastSubmitted(),
+                                be.getLastSubmittedFluid(), be.getLastSubmittedChemical(), be.getLastClaimedRewards())
+                        : Component.translatable(GUI + "summary.resources", be.getQueueSize(), be.getLastSubmitted(),
+                                be.getLastSubmittedFluid(), be.getLastClaimedRewards()), GlassPalette.TEXT);
         row(graphics, mouseX, mouseY, 10, 98, contentWidth,
                 Component.translatable(GUI + (be.isSuppressCompletionToast() ? "toast.suppressed" : "toast.normal")),
                 GlassPalette.TEXT);
@@ -231,10 +238,10 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
         var task = file == null || !goal.valid() ? null : file.getTask(goal.taskId());
         Component target = task == null ? goal.title() : Component.translatable(GUI + "target",
                 task.getQuest().getTitle(), task.getTitle());
-        Component name = goal.valid()
-                ? Component.translatable(GUI + (goal.fluid() ? "fluid_goal" : "item_goal"), target) : target;
+        String kind = goal.chemical() ? "chemical" : goal.fluid() ? "fluid" : "item";
+        Component name = goal.valid() ? Component.translatable(GUI + kind + "_goal", target) : target;
         Component amount = goal.valid()
-                ? Component.translatable(GUI + (goal.fluid() ? "fluid_amount" : "item_amount"),
+                ? Component.translatable(GUI + (goal.fluid() || goal.chemical() ? "fluid_amount" : "item_amount"),
                         goal.progress(), goal.required())
                 : Component.translatable(GUI + "unavailable");
         int offsetY = Math.max(0, (rowHeight - 12) / 2);

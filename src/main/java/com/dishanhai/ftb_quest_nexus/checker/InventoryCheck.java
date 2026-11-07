@@ -22,38 +22,61 @@ import net.minecraftforge.fluids.FluidUtil;
 
 /** Author: dishanhai. One read-only AE inventory snapshot per scan, in items and mB. */
 final class InventoryCheck {
+    private final MEStorage storage;
     private final KeyCounter items = new KeyCounter();
-    private final KeyCounter fluids = new KeyCounter();
     private final KeyCounter storedFluids = new KeyCounter();
     private final Map<Item, KeyCounter> itemsByType = new HashMap<>();
+    private boolean loaded;
+    private KeyCounter fluids;
 
     InventoryCheck(MEStorage storage) {
+        this.storage = storage;
+    }
+
+    private void loadStock() {
+        if (loaded) return;
         for (var entry : storage.getAvailableStacks()) {
             long amount = entry.getLongValue();
             if (amount <= 0) continue;
             AEKey key = entry.getKey();
             if (key instanceof AEFluidKey fluid) {
                 storedFluids.add(fluid, amount);
-                addFluid(fluid, amount);
             } else if (key instanceof AEItemKey item) {
                 items.add(item, amount);
                 itemsByType.computeIfAbsent(item.getItem(), ignored -> new KeyCounter()).add(item, amount);
-                // Read a single-item copy. Neither a drain nor an AE extraction is performed.
-                FluidStack contained = FluidUtil.getFluidContained(item.toStack()).orElse(FluidStack.EMPTY);
-                if (!contained.isEmpty()) {
-                    long volume = multiply(amount, contained.getAmount());
-                    addFluid(AEFluidKey.of(contained), volume);
-                }
+            }
+        }
+        loaded = true;
+    }
+
+    private void loadContainerFluids() {
+        if (fluids != null) return;
+        fluids = new KeyCounter();
+        fluids.addAll(storedFluids);
+        for (var entry : items) {
+            // The snapshot supplies counts; capabilities are read from a single-item copy.
+            AEItemKey item = (AEItemKey) entry.getKey();
+            FluidStack contained = FluidUtil.getFluidContained(item.toStack()).orElse(FluidStack.EMPTY);
+            if (!contained.isEmpty()) {
+                long volume = multiply(entry.getLongValue(), contained.getAmount());
+                addFluid(AEFluidKey.of(contained), volume);
             }
         }
     }
 
     long available(Task task) {
+        return countUpTo(task, Long.MAX_VALUE);
+    }
+
+    long countUpTo(Task task, long threshold) {
         if (task instanceof FluidTask fluid) {
             if (fluid.getFluid() == net.minecraft.world.level.material.Fluids.EMPTY) return 0;
+            loadStock();
+            loadContainerFluids();
             return fluids.get(AEFluidKey.of(fluid.getFluid(), fluid.getFluidNBT()));
         }
         if (!(task instanceof ItemTask item) || item.isOnlyFromCrafting()) return 0;
+        loadStock();
         ItemStack target = item.getItemStack();
         boolean filter = ItemMatchingSystem.INSTANCE.isItemFilter(target);
         long total = 0;
@@ -66,11 +89,12 @@ final class InventoryCheck {
         }
         KeyCounter candidates = !filter && !target.isEmpty() && item.getClass() == ItemTask.class
                 ? itemsByType.get(target.getItem()) : items;
-        if (candidates == null) return total;
+        if (candidates == null || total >= threshold) return total;
         for (var entry : candidates) {
             AEItemKey key = (AEItemKey) entry.getKey();
             if (filter && key.matches(target)) continue;
             if (item.test(key.toStack())) total = add(total, entry.getLongValue());
+            if (total >= threshold) break;
         }
         return total;
     }

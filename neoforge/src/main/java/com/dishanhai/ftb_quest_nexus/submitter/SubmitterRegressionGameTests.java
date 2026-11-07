@@ -12,22 +12,40 @@ import appeng.api.storage.IStorageProvider;
 import com.dishanhai.ftb_quest_nexus.NexusContent;
 import com.dishanhai.ftb_quest_nexus.QuestNexus;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.FtbqAutoClaimDeferral;
+import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalTask;
 import com.mojang.authlib.GameProfile;
 import dev.ftb.mods.ftblibrary.config.Tristate;
 import dev.ftb.mods.ftbquests.quest.*;
+import com.dishanhai.ftb_quest_nexus.api.ftbq.ChoiceRewardNotices;
+import dev.ftb.mods.ftbquests.quest.loot.RewardTable;
+import dev.ftb.mods.ftbquests.quest.loot.WeightedReward;
+import dev.ftb.mods.ftbquests.quest.reward.AllTableReward;
+import dev.ftb.mods.ftbquests.quest.reward.ChoiceReward;
 import dev.ftb.mods.ftbquests.quest.reward.ItemReward;
 import dev.ftb.mods.ftbquests.quest.reward.Reward;
+import dev.ftb.mods.ftbquests.quest.reward.XPLevelsReward;
 import dev.ftb.mods.ftbquests.quest.reward.XPReward;
 import dev.ftb.mods.ftbquests.quest.task.ItemTask;
 import dev.ftb.mods.ftbquests.quest.task.FluidTask;
+import dev.ftb.mods.ftbquests.quest.task.TaskTypes;
+import dev.ftb.mods.ftbquests.quest.task.XPTask;
+import dev.ftb.mods.ftbquests.quest.task.CheckmarkTask;
 import net.minecraft.world.level.material.Fluids;
 import dev.ftb.mods.ftbteams.data.TeamManagerImpl;
+import io.netty.buffer.Unpooled;
+import me.ramidzkh.mekae2.ae2.MekanismKey;
+import mekanism.api.MekanismAPI;
+import mekanism.api.chemical.ChemicalStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.PlayerList;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
@@ -35,8 +53,11 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -59,17 +80,16 @@ public final class SubmitterRegressionGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 100)
-    public static void sameTeamCanRebindButPendingRewardsPreventIt(GameTestHelper helper) {
+    public static void offlineOwnerCannotBeReplacedAndPendingRewardsPreventBinding(GameTestHelper helper) {
         withSubmitter(helper, f -> {
             helper.assertTrue(f.entity.applyAction(f.owner, 0), "Initial binding failed");
+            CompoundTag bound = userData(f);
             CompoundTag departed = userData(f);
             departed.putString("rewardPlayerIdText", UUID.randomUUID().toString());
             f.entity.loadUserData(departed, helper.getLevel().registryAccess());
-            helper.assertTrue(f.entity.applyAction(f.owner, 0), "Remaining team member could not rebind");
-            helper.assertTrue(f.owner.getUUID().toString().equals(f.entity.getRewardPlayerIdText()),
-                    "Reward player was not replaced");
-            helper.assertTrue(f.entity.getQueueSize() == 1, "Same-team rebind discarded queued targets");
-            CompoundTag user = userData(f);
+            helper.assertTrue(!f.entity.applyAction(f.owner, 0), "Same-team member replaced an offline owner");
+            helper.assertTrue(departed.equals(userData(f)), "Rejected binding changed saved data");
+            CompoundTag user = bound;
             net.minecraft.nbt.ListTag pending = new net.minecraft.nbt.ListTag();
             CompoundTag entry = new CompoundTag();
             entry.put("key", AEItemKey.of(Items.GOLD_INGOT).toTag(helper.getLevel().registryAccess()));
@@ -80,6 +100,101 @@ public final class SubmitterRegressionGameTests {
             f.entity.applyAction(f.owner, 0);
             helper.assertTrue(user.equals(userData(f)), "Rebinding altered pending rewards");
         });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void originalOwnerMustApproveTransferBeforeExperienceCanFollowBinding(GameTestHelper helper) {
+        withSubmitter(helper, f -> {
+            BindingOwner original = new BindingOwner(f.teammate);
+            CompoundTag saved = userData(f);
+            saved.putString("rewardPlayerIdText", original.getUUID().toString());
+            f.entity.loadUserData(saved, helper.getLevel().registryAccess());
+
+            withOnlinePlayers(List.of(original, f.owner), () -> {
+                helper.assertTrue(f.entity.applyAction(f.owner, 0), "Same-team transfer request was not sent");
+                helper.assertTrue(original.prompts.size() == 1, "Original owner did not receive the request");
+                helper.assertTrue(saved.equals(userData(f)), "A pending request changed the binding");
+                helper.assertTrue(f.entity.applyAction(f.owner, 0) && original.prompts.size() == 1,
+                        "Repeated request sent another approval prompt");
+
+                String firstAccept = approvalCommand(original, true);
+                helper.assertTrue(executeBindingCommand(f.owner, firstAccept) == 0 && saved.equals(userData(f)),
+                        "The requester could approve their own transfer");
+                helper.assertTrue(executeBindingCommand(original, approvalCommand(original, false)) == 1
+                                && saved.equals(userData(f)),
+                        "Declining the request changed the binding");
+                helper.assertTrue(executeBindingCommand(original, firstAccept) == 0,
+                        "A declined approval could still be used");
+
+                helper.assertTrue(f.entity.applyAction(f.owner, 0) && original.prompts.size() == 2,
+                        "A new approval request was not sent after decline");
+                String accepted = approvalCommand(original, true);
+                helper.assertTrue(executeBindingCommand(original, accepted) == 1, "Original owner could not approve");
+                helper.assertTrue(f.owner.getUUID().toString().equals(f.entity.getRewardPlayerIdText())
+                                && f.entity.getQueueSize() == 1,
+                        "Approved same-team transfer did not preserve the queue and change the binding");
+                helper.assertTrue(executeBindingCommand(original, accepted) == 0,
+                        "A used approval token could be replayed");
+            });
+
+            XPReward reward = new XPReward(f.file.newID(), f.quest, 100);
+            f.quest.addReward(reward);
+            f.file.refreshIDMap();
+            int before = f.owner.totalExperience;
+            runWork(f);
+            helper.assertTrue(f.owner.totalExperience == before + 100
+                            && f.data.isRewardClaimed(f.owner.getUUID(), reward),
+                    "Experience did not follow the approved binding");
+        });
+    }
+
+    private static String approvalCommand(BindingOwner owner, boolean accepted) {
+        Component prompt = owner.prompts.getLast();
+        Object[] args = ((TranslatableContents) prompt.getContents()).getArgs();
+        Component button = (Component) args[args.length - (accepted ? 2 : 1)];
+        return button.getStyle().getClickEvent().getValue().substring(1);
+    }
+
+    private static int executeBindingCommand(ServerPlayer player, String command) {
+        try {
+            return player.getServer().getCommands().getDispatcher().execute(command, player.createCommandSourceStack());
+        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static void withOnlinePlayers(List<ServerPlayer> players, Runnable action) {
+        helperReflect(() -> {
+            var field = PlayerList.class.getDeclaredField("playersByUUID");
+            field.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Map<UUID, ServerPlayer> online = (Map<UUID, ServerPlayer>) field.get(players.getFirst().getServer().getPlayerList());
+            Map<UUID, ServerPlayer> previous = new HashMap<>();
+            for (ServerPlayer player : players) previous.put(player.getUUID(), online.put(player.getUUID(), player));
+            try {
+                action.run();
+            } finally {
+                previous.forEach((id, player) -> {
+                    if (player == null) online.remove(id);
+                    else online.put(id, player);
+                });
+            }
+        });
+    }
+
+    private static final class BindingOwner extends ServerPlayer {
+        private final List<Component> prompts = new ArrayList<>();
+
+        BindingOwner(ServerPlayer player) {
+            super(player.getServer(), player.serverLevel(), player.getGameProfile(), net.minecraft.server.level.ClientInformation.createDefault());
+        }
+
+        @Override
+        public void sendSystemMessage(Component message) {
+            if (message.getContents() instanceof TranslatableContents text
+                    && (text.getKey().equals("binding.ftb_quest_nexus.prompt")
+                    || text.getKey().equals("chat.ftb_quest_nexus.choice_rewards.ready"))) prompts.add(message);
+        }
     }
 
     @GameTest(template = "empty", timeoutTicks = 100)
@@ -141,6 +256,105 @@ public final class SubmitterRegressionGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 100)
+    public static void allTableRewardReturnsEveryEntryToAeOnce(GameTestHelper helper) {
+        withSubmitter(helper, f -> {
+            RewardTable table = new RewardTable(f.file.newID(), f.file);
+            table.addReward(new WeightedReward(new ItemReward(0, f.quest, new ItemStack(Items.GOLD_INGOT), 2), 1));
+            table.addReward(new WeightedReward(new ItemReward(0, f.quest, new ItemStack(Items.EMERALD), 3), 8));
+            table.addReward(new WeightedReward(new ItemReward(0, f.quest, new ItemStack(Items.GOLD_INGOT), 4), 1));
+            f.file.addRewardTable(table);
+            f.file.refreshIDMap();
+            AllTableReward reward = new AllTableReward(f.file.newID(), f.quest);
+            reward.setTable(table);
+            configureAutomaticReward(f, reward, true);
+            helper.assertTrue(reward.getTable() == table, "Fixture lost the reward table during config round trip");
+
+            runWork(f);
+            runWork(f);
+            helper.assertTrue(f.storage.items.get(AEItemKey.of(Items.GOLD_INGOT)) == 6
+                            && f.storage.items.get(AEItemKey.of(Items.EMERALD)) == 3,
+                    "Every table entry must reach AE exactly once");
+            helper.assertTrue(f.data.isRewardClaimed(f.owner.getUUID(), reward), "Table claim was not recorded");
+            helper.assertTrue(!f.owner.getInventory().contains(new ItemStack(Items.GOLD_INGOT))
+                            && !f.teammate.getInventory().contains(new ItemStack(Items.GOLD_INGOT)),
+                    "The team reward also reached a player");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void choiceRewardsOpenOnePrivateBatchAndRejectReplay(GameTestHelper helper) {
+        withSubmitter(helper, f -> {
+            Quest secondQuest = new Quest(f.file.newID(), f.quest.getChapter());
+            f.quest.getChapter().addQuest(secondQuest);
+            ItemTask secondTask = itemTask(f.file, secondQuest, Items.IRON_INGOT);
+            RewardTable table = new RewardTable(f.file.newID(), f.file);
+            table.addReward(table.makeWeightedItemReward(new ItemStack(Items.GOLD_INGOT), 1));
+            table.addReward(table.makeWeightedItemReward(new ItemStack(Items.EMERALD), 1));
+            f.file.addRewardTable(table);
+            f.file.refreshIDMap();
+            ChoiceReward first = new ChoiceReward(f.file.newID(), f.quest);
+            first.setTable(table);
+            configureAutomaticReward(f, first, true);
+            helper.assertTrue(first.getTable() == table, "Fixture lost the choice table during config round trip");
+            ChoiceReward second = new ChoiceReward(f.file.newID(), secondQuest);
+            second.setTable(table);
+            secondQuest.addReward(second);
+            f.file.refreshIDMap();
+            helper.assertTrue(SubmitterBlockEntity.queueTask(f.owner, UUID.fromString(f.entity.getSubmitterIdText()),
+                    secondTask.id), "Second quest could not be queued");
+
+            BindingOwner owner = new BindingOwner(f.owner);
+            BindingOwner teammate = new BindingOwner(f.teammate);
+            withOnlinePlayers(List.of(owner, teammate), () -> {
+                runWork(f);
+                runWork(f);
+                runWork(f);
+                helper.assertTrue(owner.prompts.size() == 1 && teammate.prompts.isEmpty(),
+                        "Choice prompt was duplicated or sent to an unbound player");
+                helper.assertTrue(!f.data.isRewardClaimed(owner.getUUID(), first),
+                        "Automatic claim consumed the player's choice");
+                String click = owner.prompts.getFirst().getStyle().getClickEvent().getValue().substring(1);
+                var dispatcher = new com.mojang.brigadier.CommandDispatcher<net.minecraft.commands.CommandSourceStack>();
+                List<ChoiceRewardNotices.Batch> opened = new ArrayList<>();
+                ChoiceRewardNotices.register(dispatcher, SubmitterBlockEntity::availableChoiceRewards,
+                        (recipient, batch) -> {
+                            helper.assertTrue(recipient == owner, "Choice page went to another player");
+                            opened.add(batch);
+                        });
+                try {
+                    helper.assertTrue(dispatcher.execute(click, teammate.createCommandSourceStack()) == 0,
+                            "An unbound player could use the prompt");
+                    helper.assertTrue(dispatcher.execute(click, owner.createCommandSourceStack()) == 1,
+                            "Prompt did not open the choice page");
+                } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+                    throw new AssertionError(e);
+                }
+                var batch = opened.getFirst();
+                helper.assertTrue(opened.size() == 1 && batch.rewardIds().equals(List.of(first.id, second.id)),
+                        "The choice page omitted a queued quest reward: " + batch.rewardIds());
+                List<Integer> delivered = new ArrayList<>();
+                ChoiceRewardNotices.ChoiceDelivery delivery = (recipient, data, reward, index) -> {
+                    if (data.markRewardAsClaimed(recipient.getUUID(), reward, System.currentTimeMillis())) {
+                        delivered.add(index);
+                    }
+                };
+                var selections = Map.of(first.id, 1, second.id, 0);
+                helper.assertTrue(ChoiceRewardNotices.select(teammate, batch.token(), selections,
+                        SubmitterBlockEntity::availableChoiceRewards, delivery) == null,
+                        "Another player used the owner's batch token");
+                var updated = ChoiceRewardNotices.select(owner, batch.token(), selections,
+                        SubmitterBlockEntity::availableChoiceRewards, delivery);
+                helper.assertTrue(updated != null && updated.rewardIds().isEmpty()
+                                && delivered.size() == 2 && delivered.containsAll(List.of(0, 1)),
+                        "The batch did not claim each chosen option");
+                helper.assertTrue(ChoiceRewardNotices.select(owner, batch.token(), selections,
+                        SubmitterBlockEntity::availableChoiceRewards, delivery) == null && delivered.size() == 2,
+                        "The same choice batch could be replayed");
+            });
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
     public static void fullAeRetainsAutomaticRewardAndRetriesExactlyOnce(GameTestHelper helper) {
         withSubmitter(helper, f -> {
             automaticReward(f, false);
@@ -159,8 +373,11 @@ public final class SubmitterRegressionGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 100)
-    public static void unsupportedAutomaticRewardsKeepVanillaDelivery(GameTestHelper helper) {
+    public static void legacySubmitterClaimsExperienceWithoutPlacementData(GameTestHelper helper) {
         withSubmitter(helper, f -> {
+            CompoundTag saved = userData(f);
+            helper.assertTrue(!saved.contains("placerId"), "Legacy fixture has a placement UUID");
+            f.entity.loadUserData(saved, helper.getLevel().registryAccess());
             XPReward xp = new XPReward(f.file.newID(), f.quest, 12);
             configureAutomaticReward(f, xp, false);
             automaticReward(f, false);
@@ -172,11 +389,140 @@ public final class SubmitterRegressionGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 100)
+    public static void experienceRewardsFollowBindingAcrossReload(GameTestHelper helper) {
+        withSubmitter(helper, f -> {
+            CompoundTag saved = userData(f);
+            saved.remove("rewardPlayerIdText");
+            saved.putUUID("placerId", f.teammate.getUUID());
+            f.entity.loadUserData(saved, helper.getLevel().registryAccess());
+            helper.assertTrue(f.entity.applyAction(f.owner, 0), "Fixture binding failed");
+            f.entity.loadUserData(userData(f), helper.getLevel().registryAccess());
+            XPReward points = new XPReward(f.file.newID(), f.quest, 3);
+            XPLevelsReward levels = new XPLevelsReward(f.file.newID(), f.quest, 5);
+            f.quest.addReward(points);
+            f.quest.addReward(levels);
+            f.file.refreshIDMap();
+            int beforePoints = f.owner.totalExperience;
+            int beforeLevels = f.owner.experienceLevel;
+            int teammatePoints = f.teammate.totalExperience;
+            int teammateLevels = f.teammate.experienceLevel;
+
+            runWork(f);
+            runWork(f);
+
+            helper.assertTrue(f.owner.totalExperience == beforePoints + 3
+                            && f.owner.experienceLevel == beforeLevels + 5,
+                    "The bound player did not receive exactly 3 points and 5 levels");
+            helper.assertTrue(f.data.isRewardClaimed(f.owner.getUUID(), points)
+                            && f.data.isRewardClaimed(f.owner.getUUID(), levels),
+                    "Personal experience claims did not use the bound player UUID");
+            helper.assertTrue(f.teammate.totalExperience == teammatePoints
+                            && f.teammate.experienceLevel == teammateLevels,
+                    "The previous placement UUID received experience");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void offlineBoundPlayerKeepsTeamExperienceUnclaimedUntilReturn(GameTestHelper helper) {
+        withSubmitter(helper, f -> {
+            XPLevelsReward levels = new XPLevelsReward(f.file.newID(), f.quest, 5);
+            configureAutomaticReward(f, levels, true);
+            f.onlineMembers.remove(f.owner);
+            int before = f.owner.experienceLevel;
+            int teammateBefore = f.teammate.experienceLevel;
+
+            f.file.withPlayerContext(f.teammate, () -> runWork(f));
+            helper.assertTrue(f.data.isCompleted(f.quest)
+                            && !f.data.isRewardClaimed(f.owner.getUUID(), levels),
+                    "An offline bound player lost an unclaimed team experience reward");
+            helper.assertTrue(f.teammate.experienceLevel == teammateBefore, "Team XP went to another player");
+
+            f.onlineMembers.add(f.owner);
+            runWork(f);
+            runWork(f);
+            helper.assertTrue(f.data.isRewardClaimed(f.owner.getUUID(), levels)
+                            && f.owner.experienceLevel == before + 5,
+                    "The bound player's experience was not delivered exactly once on return");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void allRewardsClaimsExperienceFromAnExperienceOnlyQuest(GameTestHelper helper) {
+        withSubmitter(helper, f -> {
+            f.quest.removeTask(f.task);
+            XPTask task = new XPTask(f.file.newID(), f.quest);
+            task.setValue(1);
+            f.quest.addTask(task);
+            XPLevelsReward reward = new XPLevelsReward(f.file.newID(), f.quest, 5);
+            f.quest.addReward(reward);
+            f.file.refreshIDMap();
+            helper.assertTrue(f.entity.applyAction(f.owner, 1), "Fixture did not clear the submitter queue");
+            helper.assertTrue(f.entity.applyAction(f.owner, 3), "Fixture did not enable all-quest rewards");
+            int before = f.owner.experienceLevel;
+            runWork(f);
+            helper.assertTrue(f.owner.experienceLevel == before, "Incomplete quest granted experience");
+
+            f.data.setProgress(task, 1);
+            runWork(f);
+            helper.assertTrue(f.owner.experienceLevel == before + 5
+                            && f.data.isRewardClaimed(f.owner.getUUID(), reward),
+                    "All-quest mode missed experience from a completed XP-only quest");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void queuedCheckmarkQuestClaimsExperienceForBoundPlayer(GameTestHelper helper) {
+        withSubmitter(helper, f -> {
+            f.quest.removeTask(f.task);
+            CheckmarkTask task = new CheckmarkTask(f.file.newID(), f.quest);
+            f.quest.addTask(task);
+            XPReward reward = new XPReward(f.file.newID(), f.quest, 100);
+            ItemReward itemReward = new ItemReward(f.file.newID(), f.quest, new ItemStack(Items.GOLD_INGOT), 8);
+            f.quest.addReward(reward);
+            f.quest.addReward(itemReward);
+            f.file.refreshIDMap();
+            helper.assertTrue(f.entity.applyAction(f.owner, 1), "Fixture did not clear the submitter queue");
+            helper.assertTrue(f.entity.isClaimOnlyQueuedRewards(), "Fixture is not in queue-only mode");
+            int before = f.owner.totalExperience;
+            int teammateBefore = f.teammate.totalExperience;
+            f.data.setProgress(task, 1);
+            runWork(f);
+            helper.assertTrue(f.owner.totalExperience == before, "Unregistered quest granted experience");
+
+            UUID submitterId = UUID.fromString(f.entity.getSubmitterIdText());
+            helper.assertTrue(SubmitterBlockEntity.queueTask(f.owner, submitterId, task.id),
+                    "Completed checkmark quest with an XP reward could not be registered");
+            f.entity.loadUserData(userData(f), helper.getLevel().registryAccess());
+            f.onlineMembers.remove(f.owner);
+            runWork(f);
+            helper.assertTrue(!f.data.isRewardClaimed(f.owner.getUUID(), reward),
+                    "The reward-only entry marked experience claimed while the bound player was offline");
+            f.onlineMembers.add(f.owner);
+            runWork(f);
+            runWork(f);
+
+            helper.assertTrue(f.entity.getQueueSize() == 1
+                            && f.entity.queuePage(0, List.of(task.id), false).rows().get(0).valid(),
+                    "The registered XP quest was removed or displayed as an invalid queue entry");
+            helper.assertTrue(f.owner.totalExperience == before + 100
+                            && f.teammate.totalExperience == teammateBefore
+                            && f.data.isRewardClaimed(f.owner.getUUID(), reward),
+                    "Queued quest did not award exactly 100 points to the bound player UUID");
+            helper.assertTrue(!f.data.isRewardClaimed(f.owner.getUUID(), itemReward),
+                    "A reward-only registration claimed an item reward");
+            helper.assertTrue(f.entity.applyAction(f.owner, 3), "Fixture did not enable all-quest rewards");
+            runWork(f);
+            helper.assertTrue(f.storage.items.get(AEItemKey.of(Items.GOLD_INGOT)) == 8,
+                    "All-quest mode did not claim the item reward");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
     public static void claimScopeRestoresAfterNestedFailure(GameTestHelper helper) {
         withSubmitter(helper, f -> {
             ItemReward reward = automaticReward(f, false);
             try {
-                FtbqAutoClaimDeferral.run(f.data, QuestWork::canClaim, () -> {
+                FtbqAutoClaimDeferral.run(f.data, QuestWork::canClaimItem, () -> {
                     helper.assertTrue(FtbqAutoClaimDeferral.shouldDefer(f.data, reward),
                             "Owner's reward was not reserved");
                     helper.assertTrue(!FtbqAutoClaimDeferral.shouldDefer(
@@ -357,6 +703,86 @@ public final class SubmitterRegressionGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 100)
+    public static void manualQueueWaitsWithoutBuildingGlobalIndex(GameTestHelper helper) {
+        withSubmitter(helper, f -> {
+            var reward = automaticReward(f, false);
+            var iron = AEItemKey.of(Items.IRON_INGOT);
+            long stock = f.storage.items.get(iron);
+            f.storage.items.remove(iron, stock);
+            int scans = f.file.questScans;
+            runWork(f);
+            helper.assertTrue(f.data.getProgress(f.task) == 0 && f.file.questScans == scans,
+                    "Manual queue walked the full quest file while waiting for stock");
+
+            f.storage.items.add(iron, stock);
+            runWork(f);
+            helper.assertTrue(f.data.isCompleted(f.task), "Manual queue did not submit its target");
+            helper.assertTrue(f.data.isRewardClaimed(f.owner.getUUID(), reward)
+                            && f.storage.items.get(AEItemKey.of(Items.GOLD_INGOT)) == 8,
+                    "Manual queue did not claim its quest reward into AE");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void matchingReusesQuestScanUntilTaskEdit(GameTestHelper helper) {
+        withSubmitter(helper, f -> {
+            f.task.setConsumeItems(Tristate.FALSE);
+            f.file.clearCachedData();
+            helper.assertTrue(f.entity.applyAction(f.owner, 6), "Fixture did not enable matching");
+            runWork(f);
+            int scans = f.file.questScans;
+            runWork(f);
+            helper.assertTrue(f.file.questScans == scans, "Matching walked the full quest file again");
+            helper.assertTrue(f.data.getProgress(f.task) == 0, "Matching consumed a read-only task");
+
+            f.task.setConsumeItems(Tristate.TRUE);
+            f.file.clearCachedData();
+            runWork(f);
+            helper.assertTrue(f.data.isCompleted(f.task), "In-place task edit did not rebuild the matching index");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void matchingSeesAddedQuestAfterFileDirty(GameTestHelper helper) {
+        withSubmitter(helper, f -> {
+            f.task.setConsumeItems(Tristate.FALSE);
+            var chapter = f.quest.getChapter();
+            var addedQuest = new Quest(f.file.newID(), chapter);
+            var addedTask = itemTask(f.file, addedQuest, Items.IRON_INGOT);
+            // Prime FTBQ's flattened quest cache before changing the chapter.
+            f.file.forAllQuests(ignored -> {});
+            helper.assertTrue(f.entity.applyAction(f.owner, 6), "Fixture did not enable matching");
+            runWork(f);
+            helper.assertTrue(f.data.getProgress(addedTask) == 0, "A quest outside the chapter was matched");
+
+            chapter.addQuest(addedQuest);
+            f.file.markDirty();
+            runWork(f);
+            helper.assertTrue(f.data.getProgress(addedTask) == 10, "Matching ignored the new quest in the live chapter");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void allRewardsReuseQuestScanAndPickUpNewRewards(GameTestHelper helper) {
+        withSubmitter(helper, f -> {
+            helper.assertTrue(f.entity.applyAction(f.owner, 1), "Fixture did not clear the queue");
+            helper.assertTrue(f.entity.applyAction(f.owner, 3), "Fixture did not enable all-quest rewards");
+            runWork(f);
+            int scans = f.file.questScans;
+            runWork(f);
+            helper.assertTrue(f.file.questScans == scans, "Reward polling walked the full quest file again");
+
+            var reward = new ItemReward(f.file.newID(), f.quest, new ItemStack(Items.GOLD_INGOT), 8);
+            f.quest.addReward(reward);
+            f.file.markDirty();
+            f.data.setProgress(f.task, 10);
+            runWork(f);
+            helper.assertTrue(f.storage.items.get(AEItemKey.of(Items.GOLD_INGOT)) == 8,
+                    "A newly added reward was missed after marking the quest file dirty");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
     public static void registeredFluidConsumesOnlyNativeAeFluidAndCreditsActualMillibuckets(GameTestHelper helper) {
         withSubmitter(helper, f -> {
             var fluid = new FluidTask(f.file.newID(), f.quest)
@@ -383,6 +809,72 @@ public final class SubmitterRegressionGameTests {
             helper.assertTrue(rows.getCompound(0).getBoolean("fluid")
                     && rows.getCompound(0).getLong("required") == 2500,
                     "Queue row lost its fluid type or amount");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void consumingChemicalCreditsOnlyExactExtractedMillibuckets(GameTestHelper helper) {
+        if (!ChemicalTask.isAvailable()) {
+            helper.assertTrue(!TaskTypes.TYPES.containsKey(ChemicalTask.ID), "Optional chemical task was registered without its dependencies");
+            helper.succeed();
+            return;
+        }
+        withSubmitter(helper, f -> {
+            ResourceLocation etheneId = ResourceLocation.fromNamespaceAndPath("mekanism", "ethene");
+            ResourceLocation hydrogenId = ResourceLocation.fromNamespaceAndPath("mekanism", "hydrogen");
+            AEKey ethene = ChemicalKeys.create(etheneId, 1200);
+            AEKey hydrogen = ChemicalKeys.create(hydrogenId, 3000);
+            helper.assertTrue(ethene != null && hydrogen != null && !ethene.equals(hydrogen), "Missing fixture chemicals");
+            ChemicalTask readOnly = new ChemicalTask(f.file.newID(), f.quest);
+            readOnly.setChemicalId(etheneId);
+            readOnly.setAmount(2500);
+            f.quest.addTask(readOnly);
+            ChemicalTask consuming = new ChemicalTask(f.file.newID(), f.quest);
+            var registries = f.owner.registryAccess();
+            CompoundTag config = new CompoundTag();
+            readOnly.writeData(config, registries);
+            config.putBoolean("consume", true);
+            consuming.readData(config, registries);
+            f.quest.addTask(consuming);
+            f.file.refreshIDMap();
+            helper.assertTrue(etheneId.equals(consuming.chemicalId()) && consuming.getMaxProgress() == 2500
+                            && consuming.consumesResources() && TaskTypes.TYPES.get(ChemicalTask.ID) == consuming.getType(),
+                    "Chemical task type, ID, amount, or consume flag failed to load");
+            var synced = new ChemicalTask(consuming.id, f.quest);
+            var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries);
+            try {
+                consuming.writeNetData(buffer);
+                synced.readNetData(buffer);
+                helper.assertTrue(synced.chemicalId().equals(etheneId) && synced.getMaxProgress() == 2500
+                                && synced.consumesResources() && !buffer.isReadable(),
+                        "Chemical task sync lost its ID, amount, or consume flag");
+            } finally {
+                buffer.release();
+            }
+
+            UUID submitterId = UUID.fromString(f.entity.getSubmitterIdText());
+            helper.assertTrue(!SubmitterBlockEntity.queueTask(f.owner, submitterId, readOnly.id),
+                    "Read-only chemical task entered the consuming queue");
+            helper.assertTrue(SubmitterBlockEntity.queueTask(f.owner, submitterId, consuming.id),
+                    "Consuming chemical registration failed");
+            f.data.addProgress(f.task, 10);
+            f.storage.items.add(ethene, 1200);
+            f.storage.items.add(hydrogen, 3000);
+            runWork(f);
+            helper.assertTrue(f.data.getProgress(consuming) == 1200 && f.entity.getLastSubmittedChemical() == 1200
+                            && f.storage.items.get(ethene) == 0,
+                    "Submitter did not credit the actual extracted chemical amount");
+
+            f.storage.items.add(ethene, 2000);
+            helper.assertTrue(f.entity.applyAction(f.owner, 6), "Could not enable chemical matching");
+            runWork(f);
+            helper.assertTrue(f.data.isCompleted(consuming) && f.data.getProgress(readOnly) == 0
+                            && f.storage.items.get(ethene) == 700 && f.storage.items.get(hydrogen) == 3000,
+                    "Matching mode extracted more than the remainder or matched a different task or chemical");
+            var rows = f.entity.writeQueueState(0).getList("rows", net.minecraft.nbt.Tag.TAG_COMPOUND);
+            helper.assertTrue(rows.stream().map(CompoundTag.class::cast).anyMatch(row -> row.getLong("id") == consuming.id
+                            && row.getBoolean("chemical") && row.getLong("required") == 2500),
+                    "Queue state lost the chemical type or mB requirement");
         });
     }
 
@@ -466,8 +958,9 @@ public final class SubmitterRegressionGameTests {
             chapter.addQuest(quest);
             ItemTask task = itemTask(file, quest, Items.IRON_INGOT);
             UUID team = TeamManagerImpl.INSTANCE.getTeamForPlayerID(owner.getUUID()).orElseThrow().getTeamId();
+            List<ServerPlayer> onlineMembers = new ArrayList<>(List.of(owner, teammate));
             TeamData data = new TeamData(team, file) {
-                @Override public Collection<ServerPlayer> getOnlineMembers() { return List.of(owner, teammate); }
+                @Override public Collection<ServerPlayer> getOnlineMembers() { return onlineMembers; }
             };
             file.addData(data, false);
             file.refreshIDMap();
@@ -476,7 +969,7 @@ public final class SubmitterRegressionGameTests {
             IStorageProvider provider = mounts -> mounts.mount(storage);
             var storageService = entity.getMainNode().getGrid().getStorageService();
             storageService.addGlobalStorageProvider(provider);
-            Fixture f = new Fixture(file, quest, task, data, entity, owner, teammate, storage);
+            Fixture f = new Fixture(file, quest, task, data, entity, owner, teammate, storage, onlineMembers);
             try {
                 ServerQuestFile.INSTANCE = file;
                 helper.assertTrue(entity.applyAction(owner, 0), "Fixture binding failed");
@@ -492,13 +985,31 @@ public final class SubmitterRegressionGameTests {
     }
 
     private static final class TestQuestFile extends ServerQuestFile {
+        private int questScans;
+
         TestQuestFile(net.minecraft.server.MinecraftServer server) { super(server); }
         @Override public void refreshIDMap() { super.refreshIDMap(); }
+
+        @Override public void forAllQuests(Consumer<Quest> consumer) {
+            questScans++;
+            super.forAllQuests(consumer);
+        }
+
+        @Override public void forAllChapters(Consumer<Chapter> consumer) {
+            questScans++;
+            super.forAllChapters(consumer);
+        }
     }
 
     private record Fixture(TestQuestFile file, Quest quest, ItemTask task, TeamData data,
                            SubmitterBlockEntity entity, ServerPlayer owner, ServerPlayer teammate,
-                           MemoryStorage storage) {}
+                           MemoryStorage storage, List<ServerPlayer> onlineMembers) {}
+
+    private static final class ChemicalKeys {
+        static AEKey create(ResourceLocation id, long amount) {
+            return MekanismKey.of(new ChemicalStack(MekanismAPI.CHEMICAL_REGISTRY.get(id), amount));
+        }
+    }
 
     @FunctionalInterface private interface ReflectAction { void run() throws ReflectiveOperationException; }
     private static void helperReflect(ReflectAction action) {

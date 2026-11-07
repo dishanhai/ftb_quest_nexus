@@ -1,6 +1,9 @@
 package com.dishanhai.ftb_quest_nexus;
 
 import com.dishanhai.ftb_quest_nexus.network.NexusNetwork;
+import com.dishanhai.ftb_quest_nexus.network.FtbqChoiceRewardPackets;
+import com.dishanhai.ftb_quest_nexus.api.BindingTransfer;
+import com.dishanhai.ftb_quest_nexus.api.ftbq.ChoiceRewardNotices;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.config.ModConfig;
@@ -9,6 +12,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.server.ServerStoppedEvent;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
+import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.CreativeModeTab;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
@@ -27,7 +31,15 @@ public final class QuestNexus {
         NexusContent.MENUS.register(bus);
         NexusNetwork.init();
         bus.addListener(QuestNexus::buildCreativeTab);
-        MinecraftForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> SubmitterBlockEntity.clearLoadedSubmitters());
+        MinecraftForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> {
+            BindingTransfer.register(event.getDispatcher());
+            ChoiceRewardNotices.register(event.getDispatcher(), SubmitterBlockEntity::availableChoiceRewards,
+                    FtbqChoiceRewardPackets::sendOpen);
+        });
+        MinecraftForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> {
+            BindingTransfer.clear(event.getServer());
+            SubmitterBlockEntity.clearLoadedSubmitters();
+        });
     }
 
     private static void buildCreativeTab(BuildCreativeModeTabContentsEvent event) {

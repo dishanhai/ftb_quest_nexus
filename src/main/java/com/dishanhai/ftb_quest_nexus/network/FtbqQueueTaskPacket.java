@@ -1,9 +1,6 @@
 package com.dishanhai.ftb_quest_nexus.network;
 
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
-import dev.ftb.mods.ftbquests.quest.ServerQuestFile;
-import com.dishanhai.ftb_quest_nexus.api.ftbq.ConsumableTask;
-import dev.ftb.mods.ftbquests.quest.task.Task;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
@@ -37,9 +34,7 @@ public class FtbqQueueTaskPacket {
     }
 
     private static void applyOnServer(FtbqQueueTaskPacket packet, ServerPlayer player) {
-        if (player == null || ServerQuestFile.INSTANCE == null) return;
-        Task task = ServerQuestFile.INSTANCE.getTask(packet.taskId);
-        if (!ConsumableTask.supported(task)) return;
+        if (player == null) return;
         SubmitterBlockEntity.queueTask(player, packet.submitterId, packet.taskId);
     }
 }

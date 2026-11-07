@@ -9,7 +9,7 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.network.NetworkEvent;
 import java.util.function.Supplier;
 
-/** Author: dishanhai. Server-owned state and one bounded catalog chunk for an open checker menu. */
+/** Author: dishanhai. One bounded catalog or delta chunk for an open checker menu. */
 public record CheckerStatePacket(int containerId, BlockPos pos, CompoundTag state) {
     public CheckerStatePacket(FriendlyByteBuf buffer) {
         this(buffer.readVarInt(), buffer.readBlockPos(), buffer.readNbt());

@@ -1,15 +1,19 @@
 package com.dishanhai.ftb_quest_nexus.client;
 
+import com.dishanhai.ftb_quest_nexus.api.ftbq.FtbqQuestFileRevision;
 import com.dishanhai.ftb_quest_nexus.checker.CheckerBlockEntity;
 import com.dishanhai.ftb_quest_nexus.checker.CheckerMenu;
 import com.dishanhai.sh_better_ui.client.blur.GaussBlur;
 import com.dishanhai.sh_better_ui.client.glass.GlassBlur;
 import com.dishanhai.sh_better_ui.client.glass.GlassPalette;
 import com.dishanhai.sh_better_ui.client.glass.GlassTheme;
+import com.dishanhai.sh_better_ui.client.gui.filter.IngredientFilter;
 import com.dishanhai.sh_better_ui.client.gui.scaled.GuiRenderUtil;
 import com.dishanhai.sh_better_ui.client.gui.scaled.UiButton;
 import com.dishanhai.sh_better_ui.client.gui.search.SearchField;
 import com.dishanhai.sh_better_ui.client.gui.search.SearchIndex;
+import com.dishanhai.sh_better_ui.client.jei.JeiIntegration.Kind;
+import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalTask;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner;
@@ -18,6 +22,7 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
 import org.lwjgl.glfw.GLFW;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -26,22 +31,31 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
     private static final String GUI = "gui.ftb_quest_nexus.checker.";
     private static final int LIST_TOP = 156;
     private static final int ROW_HEIGHT = 14;
+    private static final List<IngredientFilter> TYPE_FILTERS = List.of(
+            IngredientFilter.all(), IngredientFilter.items(), IngredientFilter.fluids());
+    private static final int ENERGY_FILTER = TYPE_FILTERS.size();
+    private static final int CHEMICAL_FILTER = ENERGY_FILTER + 1;
     private UiButton pauseButton;
     private UiButton previousButton;
     private UiButton nextButton;
     private UiButton completionButton;
     private UiButton stockButton;
     private UiButton sortButton;
-    private SearchField<CheckerBlockEntity.CheckRow> search;
-    private SearchIndex<CheckerBlockEntity.CheckRow> index = new SearchIndex<>(List.of());
-    private List<CheckerBlockEntity.CheckRow> visibleRows = List.of();
+    private UiButton typeButton;
+    private SearchField<Integer> search;
+    private SearchIndex<Integer> index = new SearchIndex<>(List.of());
+    private List<CheckerBlockEntity.CheckRow> indexedRows = List.of();
+    private List<Integer> visibleRows = List.of();
     private int completionFilter;
+    private int typeFilter;
     private boolean stockedOnly;
     private boolean alphabetical;
     private int page;
     private int pageSize = 6;
     private long catalogRevision = -1;
+    private long stockRevision = -1;
     private Object indexedQuestFile;
+    private long indexedQuestRevision;
     private net.minecraft.locale.Language indexedLanguage;
     private Component hoveredText;
 
@@ -73,7 +87,7 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
         search.setValue(query);
         search.setResponder(ignored -> refreshResults(true));
         search.setOnSubmit(ignored -> refreshResults(true));
-        int filterWidth = (imageWidth - 28) / 3;
+        int filterWidth = (imageWidth - 32) / 4;
         completionButton = addFilterButton(leftPos + 10, filterWidth, () -> {
             completionFilter = (completionFilter + 1) % 3;
             refreshResults(true);
@@ -84,6 +98,11 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
         });
         sortButton = addFilterButton(leftPos + 18 + filterWidth * 2, filterWidth, () -> {
             alphabetical = !alphabetical;
+            refreshResults(true);
+        });
+        typeButton = addFilterButton(leftPos + 22 + filterWidth * 3, filterWidth, () -> {
+            int lastFilter = ChemicalTask.isAvailable() ? CHEMICAL_FILTER : ENERGY_FILTER;
+            typeFilter = (typeFilter + 1) % (lastFilter + 1);
             refreshResults(true);
         });
         int buttonWidth = (imageWidth - 26) / 4;
@@ -101,30 +120,54 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
                 ignored -> action.run()));
     }
 
-    private boolean matchesFilters(CheckerBlockEntity.CheckRow row) {
-        return (completionFilter == 0 || row.completed() == (completionFilter == 1))
-                && (!stockedOnly || row.available() > 0);
+    private boolean matchesFilters(int index) {
+        var row = indexedRows.get(index);
+        if ((completionFilter != 0 && row.completed() != (completionFilter == 1))
+                || (stockedOnly && row.available() <= 0)) return false;
+        if (row.energy()) return typeFilter == 0 || typeFilter == ENERGY_FILTER;
+        if (row.chemical()) return typeFilter == 0 || typeFilter == CHEMICAL_FILTER;
+        if (typeFilter >= ENERGY_FILTER) return false;
+        var kinds = TYPE_FILTERS.get(typeFilter).kinds();
+        Kind kind = row.fluid() ? Kind.FLUID : Kind.ITEM;
+        return kinds.isEmpty() || kinds.contains(kind);
     }
 
     private void refreshCatalog() {
         var file = dev.ftb.mods.ftbquests.client.ClientQuestFile.INSTANCE;
         var language = net.minecraft.locale.Language.getInstance();
-        if (catalogRevision == menu.getCatalogRevision() && indexedQuestFile == file && indexedLanguage == language) return;
-        catalogRevision = menu.getCatalogRevision();
-        indexedQuestFile = file;
-        indexedLanguage = language;
-        index = new SearchIndex<>(menu.getCatalogRows().stream().map(row -> new SearchIndex.Entry<>(
-                row, goalTitle(row).getString(), List.of(Long.toHexString(row.taskId())),
-                List.of(row.title().getString()))).toList());
-        search.setIndex(index);
-        refreshResults(false);
+        long questRevision = FtbqQuestFileRevision.get(file);
+        boolean catalogChanged = catalogRevision != menu.getCatalogRevision() || indexedQuestFile != file
+                || indexedQuestRevision != questRevision || indexedLanguage != language;
+        boolean stockChanged = stockRevision != menu.getStockRevision();
+        stockRevision = menu.getStockRevision();
+        if (catalogChanged) {
+            catalogRevision = menu.getCatalogRevision();
+            indexedQuestFile = file;
+            indexedQuestRevision = questRevision;
+            indexedLanguage = language;
+            indexedRows = menu.getCatalogRows();
+            List<SearchIndex.Entry<Integer>> entries = new ArrayList<>(indexedRows.size());
+            for (int i = 0; i < indexedRows.size(); i++) {
+                var row = indexedRows.get(i);
+                String id = Long.toHexString(row.taskId());
+                String title = goalTitle(row).getString();
+                var task = file == null ? null : file.getTask(row.taskId());
+                List<String> ids = task instanceof ChemicalTask chemical
+                        ? List.of(id, chemical.chemicalId().toString()) : List.of(id);
+                entries.add(new SearchIndex.Entry<>(i, title.isBlank() ? id : title, ids,
+                        List.of(row.title().getString())));
+            }
+            index = new SearchIndex<>(entries);
+            search.setIndex(index);
+        }
+        if (catalogChanged || (stockChanged && (completionFilter != 0 || stockedOnly))) refreshResults(false);
     }
 
     private void refreshResults(boolean resetPage) {
         search.setScope(this::matchesFilters);
         var entries = index.search(search.getValue(), this::matchesFilters).stream();
         if (alphabetical) entries = entries.sorted(Comparator.comparing(
-                SearchIndex.Entry<CheckerBlockEntity.CheckRow>::name, String.CASE_INSENSITIVE_ORDER));
+                SearchIndex.Entry<Integer>::name, String.CASE_INSENSITIVE_ORDER));
         visibleRows = entries.map(SearchIndex.Entry::value).toList();
         page = resetPage ? 0 : Math.min(page, pageCount() - 1);
         updateButtons();
@@ -168,12 +211,22 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
         completionButton.setMessage(Component.translatable(GUI + completion));
         completionButton.setPreview(Component.translatable(GUI + "filter.completion.tooltip"));
         completionButton.setSelected(completionFilter != 0);
-        stockButton.setMessage(Component.translatable(GUI + (stockedOnly ? "filter.stocked" : "filter.any_stock")));
-        stockButton.setPreview(Component.translatable(GUI + "filter.stock.tooltip"));
+        stockButton.setMessage(Component.translatable(GUI + (stockedOnly ? "filter.stock_or_progress" : "filter.any_stock")));
+        stockButton.setPreview(Component.translatable(GUI + "filter.stock_or_progress.tooltip"));
         stockButton.setSelected(stockedOnly);
         sortButton.setMessage(Component.translatable(GUI + (alphabetical ? "sort.az" : "sort.original")));
         sortButton.setPreview(Component.translatable(GUI + "sort.tooltip"));
         sortButton.setSelected(alphabetical);
+        String type = switch (typeFilter) {
+            case 1 -> "filter.type.item";
+            case 2 -> "filter.type.fluid";
+            default -> typeFilter == CHEMICAL_FILTER ? "filter.type.chemical"
+                    : typeFilter == ENERGY_FILTER ? "filter.type.energy" : "filter.type.all";
+        };
+        typeButton.setMessage(Component.translatable(GUI + type));
+        typeButton.setPreview(Component.translatable(GUI + (ChemicalTask.isAvailable()
+                ? "filter.type.chemical.tooltip" : "filter.type.energy.tooltip")));
+        typeButton.setSelected(typeFilter != 0);
     }
 
     @Override
@@ -186,21 +239,25 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
         theme.box(graphics, leftPos, topPos, imageWidth, imageHeight, GlassPalette.ROOT_EDGE, theme.panelBg);
         text(graphics, mouseX, mouseY, 10, 8, imageWidth - 20, title, GlassPalette.TEXT_HEAD);
         text(graphics, mouseX, mouseY, 10, 24, imageWidth - 20,
-                Component.translatable(GUI + (checker.isOnline() ? "online" : "offline")), GlassPalette.TEXT);
+                Component.translatable(GUI + (checker.isOnline() ? "online_with_energy" : "offline")), GlassPalette.TEXT);
         text(graphics, mouseX, mouseY, 10, 38, imageWidth - 20,
                 Component.translatable(GUI + "status", checker.getStatusComponent()), GlassPalette.TEXT);
         text(graphics, mouseX, mouseY, 10, 52, imageWidth - 20,
                 Component.translatable(GUI + "player", identifier(checker.getPlayerIdText())), GlassPalette.TEXT_MUTED);
         text(graphics, mouseX, mouseY, 10, 66, imageWidth - 20,
                 Component.translatable(GUI + "team", identifier(checker.getTeamIdText())), GlassPalette.TEXT_MUTED);
-        text(graphics, mouseX, mouseY, 10, 82, imageWidth - 20,
-                Component.translatable(GUI + "summary", checker.getItemTaskCount(),
-                        checker.getFluidTaskCount(), checker.getCompletedLastScan()), GlassPalette.TEXT);
+        Component summary = ChemicalTask.isAvailable()
+                ? Component.translatable(GUI + "summary_with_chemical", checker.getItemTaskCount(),
+                        checker.getFluidTaskCount(), checker.getEnergyTaskCount(), checker.getChemicalTaskCount(),
+                        checker.getCompletedLastScan())
+                : Component.translatable(GUI + "summary_with_energy", checker.getItemTaskCount(),
+                        checker.getFluidTaskCount(), checker.getEnergyTaskCount(), checker.getCompletedLastScan());
+        text(graphics, mouseX, mouseY, 10, 82, imageWidth - 20, summary, GlassPalette.TEXT);
         int amountX = imageWidth * 3 / 5;
         text(graphics, mouseX, mouseY, 10, 142, amountX - 14,
                 Component.translatable(GUI + "goals"), GlassPalette.TEXT_MUTED);
         text(graphics, mouseX, mouseY, amountX, 142, imageWidth - amountX - 10,
-                Component.translatable(GUI + "stock"), GlassPalette.TEXT_MUTED);
+                Component.translatable(GUI + "stock_or_progress"), GlassPalette.TEXT_MUTED);
         theme.box(graphics, leftPos + 8, topPos + LIST_TOP, imageWidth - 16, ROW_HEIGHT * pageSize,
                 theme.cellEdge, theme.boxBg);
         if (visibleRows.isEmpty()) {
@@ -211,9 +268,9 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
         } else {
             int rowIndex = 0;
             int end = Math.min(visibleRows.size(), (page + 1) * pageSize);
-            for (CheckerBlockEntity.CheckRow row : visibleRows.subList(page * pageSize, end)) {
+            for (int index : visibleRows.subList(page * pageSize, end)) {
                 int y = LIST_TOP + rowIndex * ROW_HEIGHT;
-                drawGoal(graphics, mouseX, mouseY, amountX, y, ROW_HEIGHT, row);
+                drawGoal(graphics, mouseX, mouseY, amountX, y, ROW_HEIGHT, indexedRows.get(index));
                 rowIndex++;
             }
         }
@@ -226,8 +283,9 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
                           int y, int rowHeight, CheckerBlockEntity.CheckRow row) {
         int color = row.completed() ? 0xFF8CD6B1 : GlassPalette.TEXT;
         Component title = goalTitle(row);
-        Component name = Component.translatable(GUI + (row.fluid() ? "fluid_goal" : "item_goal"), title);
-        Component amount = Component.translatable(GUI + (row.fluid() ? "fluid_amount" : "item_amount"),
+        String kind = row.chemical() ? "chemical" : row.energy() ? "energy" : row.fluid() ? "fluid" : "item";
+        Component name = Component.translatable(GUI + kind + "_goal", title);
+        Component amount = Component.translatable(GUI + (row.chemical() ? "fluid" : kind) + "_amount",
                 row.available(), row.required());
         int offsetY = Math.max(0, (rowHeight - 12) / 2);
         text(graphics, mouseX, mouseY, 14, y + offsetY, amountX - 20, name, color);
@@ -235,7 +293,7 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
         if (mouseX >= leftPos + 8 && mouseX < leftPos + imageWidth - 8
                 && mouseY >= topPos + y && mouseY < topPos + y + rowHeight) {
             hoveredText = Component.translatable(GUI + "goal.tooltip", name, amount,
-                    Component.translatable(GUI + (row.completed() ? "complete" : "waiting")));
+                    Component.translatable(GUI + (row.completed() ? "complete" : row.energy() ? "waiting_energy" : "waiting")));
         }
     }
 
@@ -272,6 +330,7 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
         // SearchField uses the platform's native EditBox cursor timing.
         if (menu.checker == null || menu.checker.isRemoved()) onClose();
         else {
+            if (menu.takeResyncRequest()) sendAction(CheckerMenu.RESYNC_BUTTON);
             refreshCatalog();
             updateButtons();
         }

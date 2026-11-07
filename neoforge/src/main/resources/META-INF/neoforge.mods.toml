@@ -8,7 +8,7 @@ displayName="${mod_name}"
 authors="${mod_authors}"
 description='''Extensions for FTB Quests, including an AE network item-task submitter and automated item reward collection.'''
 [[mixins]]
-config="ftb_quest_nexus.mixins.json"
+config="ftb_quest_nexus.ftb_quests.mixins.json"
 [[dependencies.ftb_quest_nexus]]
 modId="neoforge"
 type="required"
@@ -55,5 +55,17 @@ side="BOTH"
 modId="jade"
 type="optional"
 versionRange="[15,16)"
+ordering="AFTER"
+side="BOTH"
+[[dependencies.ftb_quest_nexus]]
+modId="mekanism"
+type="optional"
+versionRange="[10.7.14,11)"
+ordering="AFTER"
+side="BOTH"
+[[dependencies.ftb_quest_nexus]]
+modId="appmek"
+type="optional"
+versionRange="[1.6.3,2)"
 ordering="AFTER"
 side="BOTH"

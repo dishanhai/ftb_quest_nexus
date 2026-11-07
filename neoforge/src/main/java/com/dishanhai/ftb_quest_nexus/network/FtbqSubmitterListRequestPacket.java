@@ -3,7 +3,7 @@ package com.dishanhai.ftb_quest_nexus.network;
 import com.dishanhai.ftb_quest_nexus.QuestNexus;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
 import dev.ftb.mods.ftbquests.quest.ServerQuestFile;
-import com.dishanhai.ftb_quest_nexus.api.ftbq.ConsumableTask;
+import com.dishanhai.ftb_quest_nexus.api.ftbq.SubmitterQuestIndex;
 import dev.ftb.mods.ftbquests.quest.task.Task;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -27,7 +27,7 @@ public record FtbqSubmitterListRequestPacket(long taskId) implements CustomPacke
     public static void handle(FtbqSubmitterListRequestPacket packet, IPayloadContext context) {
         if (!(context.player() instanceof ServerPlayer player) || ServerQuestFile.INSTANCE == null) return;
         Task task = ServerQuestFile.INSTANCE.getTask(packet.taskId);
-        if (!ConsumableTask.supported(task)) return;
+        if (!SubmitterQuestIndex.supportsQueueTask(task)) return;
         PacketDistributor.sendToPlayer(player,
                 new FtbqSubmitterListResponsePacket(packet.taskId, SubmitterBlockEntity.listSubmitters(player)));
     }
