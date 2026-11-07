@@ -10,11 +10,12 @@ import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderTooltipEvent;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
-/** Only loaded on physical clients; the common entry point does not link screen classes. */
+/** Author: dishanhai. Only loaded on physical clients; the common entry point does not link screen classes. */
 @Mod.EventBusSubscriber(modid = QuestNexus.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class NexusClient {
     private NexusClient() {}
@@ -24,7 +25,8 @@ public final class NexusClient {
         event.enqueueWork(() -> {
             MenuScreens.register(NexusContent.MENU.get(), SubmitterScreen::new);
             GaussBlur.allowScreen(screen -> screen instanceof SubmitterScreen || QuestGlassUi.active(screen));
-            MinecraftForge.EVENT_BUS.addListener(NexusClient::tooltip);
+            // Claim the event before Modern UI's HIGH handler draws text into the blur input.
+            MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGHEST, NexusClient::tooltip);
         });
     }
 

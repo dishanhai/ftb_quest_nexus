@@ -7,6 +7,7 @@ import com.dishanhai.sh_better_ui.client.blur.GaussBlur;
 import com.dishanhai.sh_better_ui.client.glass.GlassTooltip;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
@@ -28,7 +29,8 @@ public final class NexusClient {
     public static void setup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
             GaussBlur.allowScreen(screen -> screen instanceof SubmitterScreen || QuestUiHooks.isGlass(screen));
-            NeoForge.EVENT_BUS.addListener(NexusClient::tooltip);
+            // Claim the event before other tooltip renderers draw text into the blur input.
+            NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, NexusClient::tooltip);
         });
     }
 
