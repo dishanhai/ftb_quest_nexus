@@ -40,9 +40,9 @@ tasks.named('compileJava') {
 }
 dependencies {
     implementation files('libs/appliedenergistics2-19.2.18.jar',
-            'libs/ftb-quests-neoforge-2101.1.38.jar',
-            'libs/ftb-library-neoforge-2101.1.39.jar',
-            'libs/ftb-teams-neoforge-2101.1.12.jar',
+            'libs/ftb-quests-neoforge-2101.1.36.jar',
+            'libs/ftb-library-neoforge-2101.1.37.jar',
+            'libs/ftb-teams-neoforge-2101.1.11.jar',
             'libs/architectury-13.0.11-neoforge.jar',
             'libs/guideme-21.1.22.jar')
     implementation files(shBetterUiJar)
