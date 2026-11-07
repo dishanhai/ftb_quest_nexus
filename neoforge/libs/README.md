@@ -11,6 +11,10 @@
 | Architectury | 13.0.11 | https://cdn.modrinth.com/data/lhGA9TYQ/versions/1IiqEQGl/architectury-13.0.11-neoforge.jar | 9CC92F2C09533FC5482C60F993BD891C655A0E32B637037CDCB7C2B23ADEDEEB |
 | GuideME | 21.1.22 | https://cdn.modrinth.com/data/Ck4E7v7R/versions/QeYKsstN/guideme-21.1.22.jar | 108337FF98C706B18ED2FBEC077B3337BA72C08F8B46A273534886280E89EF0D |
 | Jade（選用） | 15.10.6 | https://cdn.modrinth.com/data/nvQzSEkH/versions/eYz2YBGT/Jade-1.21.1-NeoForge-15.10.6.jar | 276F1F65A20D04F536989C4F311949D770B52C440C23C2B904A08860F3C93810 |
+| Mekanism（執行時選用） | 10.7.19.85 | `Mekanism-1.21.1-10.7.19.85.jar` | 004DBC9F3106F4D192AEAA1EE1190DD16EC9CA8059ED3D093B80034F4C574F43 |
+| Applied Mekanistics（執行時選用） | 1.6.3 | `Applied-Mekanistics-1.6.3.jar` | 8946FEA39451DBCE8E709DEDBEF40A52BA337BDF7A25AC0C4B503800B1BF0773 |
+
+編譯需將兩個化學品相容性 jar 放在本目錄。開發時以 `-PmekanismRuntime` 將它們加入 NeoForge 執行環境。
 
 另需獨立 SH-Better-UI NeoForge 1.21.1 1.0.3，以及 Maven 取得的 `thedarkcolour:kotlinforforge-neoforge:5.10.0`（UI 庫所需的外部 runtime）。SH-Better-UI 預設從相鄰專案的 `neoforge/build/libs/` 取得，可由 `-PshBetterUiJar=<path>` 覆寫。
 

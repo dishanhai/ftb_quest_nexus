@@ -31,7 +31,7 @@
 - 大小：83,352 bytes，82 个 ZIP 条目。
 - SHA-256：`1F6F540A451DC844EED968C914A363FFF30B3E8D16B01E486A6A7BE2EA09B0E7`。
 - `build/reobfJar/output.jar` 与正式产物 SHA-256 完全一致。
-- MANIFEST 的 `MixinConfigs` 指向 `ftb_quest_nexus.mixins.json`；mods.toml 已展开为正确的 ID、名称及 1.0.0 版本。
+- FTB Quests 集成的 MANIFEST `MixinConfigs` 指向 `ftb_quest_nexus.ftb_quests.mixins.json`。mods.toml 已展开为正确的 ID、名称及 1.0.0 版本。
 - 正式 jar 不含依赖 jar、Kotlin 类、SH-Better-UI 类、旧 gt_shanhai 类、GT／LDLib 类或 GameTest 类。测试类与空模板仅留在开发运行／源码中。
 - 11 个 JSON 资源均可解析；双语键集合一致，共 52 键。原提交器的 PNG／mcmeta 资源保留，六向 × 在线状态共 12 种模型变体。
 

@@ -10,7 +10,7 @@
 | submitter/SubmitterBlockEntity.java | queueTask | 沿用 taskId 锚点，一次加入所属 Quest 全部可消耗、非仅合成物品目标，仍验证队伍并去重 |
 | submitter/SubmitterBlockEntity.java、QuestWork.java | runQueuedWork／claimRewards／canClaim | 复用同一奖励范围和物品树判定，在增加进度时暂缓原生物品自动领奖，先完成 AE 交付或持久缓冲，再恢复被暂缓任务的原生自动领取 |
 | api/ftbq/FtbqAutoClaimDeferral.java | 共用服务端上下文 | 按 TeamData 身份与可处理奖励筛选；返回实际暂缓的 Quest，finally 恢复嵌套／异常状态 |
-| mixin/FtbTeamDataAutoClaimMixin.java、ftb_quest_nexus.mixins.json | checkAutoCompletion | 只拦进度作用域内的原生自动领奖；非物品奖励及作用域外操作保持原流程 |
+| mixin/FtbTeamDataAutoClaimMixin.java、ftb_quest_nexus.ftb_quests.mixins.json | checkAutoCompletion | 只拦进度作用域内的原生自动领奖；非物品奖励及作用域外操作保持原流程 |
 | submitter/SubmitterRegressionGameTests.java | 新增九项 | 权限、队伍成员接替、登记去重／过滤、个人与队伍自动奖励、满盘重试、经验奖励、异常恢复、可重复任务 |
 | build.gradle | minecraft.runs | 开发源码运行显式载入 Mixin 清单；正式包继续使用 manifest |
 | zh_cn.json／en_us.json、README、TODO、.learnings/ERRORS.md | 文案／记录 | 明确一次登记全部目标、原队伍重绑和验证边界；未硬编码界面文本到 Java |

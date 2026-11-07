@@ -14,9 +14,9 @@ Block ID `ftb_quest_nexus:ftbq_ae_submitter`.
 
 1. Connect the submitter to a powered AE network with an available channel. All six faces support connections.
 2. Open the interface and select Bind to bind the current player and their FTB Teams team.
-3. In the FTB Quests quest details, choose the action to register all consumable tasks with a Nexus submitter and select a submitter on your team. This queues the quest's consumable item and fluid tasks together.
+3. In the FTB Quests quest details, select a submitter on your team. You can queue the quest's consumable item and fluid tasks together. For a quest with an XP reward and no consumable tasks, use the XP reward registration action to queue the reward for collection after completion.
 4. The submitter checks once per second and advances progress by the number of items or millibuckets of fluid actually extracted from AE. Craft-only and non-consumable tasks use the standard quest flow.
-5. Item rewards go to the AE network. When the submitter advances a task, FTBQ auto-claim also sends the bound player's eligible item rewards to AE. Teammates' personal rewards and non-item rewards follow their usual claim rules. The Rewards setting switches between queued quests and all quests. New submitters default to queued quests. The notification toggle controls completion messages triggered by this mod's automatic submissions.
+5. Eligible item rewards go to the AE network. Direct XP and experience level rewards go to the currently bound player and wait for that player to come online. The Rewards setting switches between queued quests and all quests. New submitters default to queued quests. The notification toggle controls completion messages triggered by this mod's automatic submissions.
 
 Matching is off by default. When enabled, the submitter matches unlocked consumable tasks against AE stock without manual registration. The list shows tasks that have received submissions in this mode, and the submitter claims AE-compatible rewards only for their quests. Turning matching off restores the manual queue and its reward settings.
 
@@ -24,7 +24,7 @@ The submitter handles ordinary item rewards and nested random or loot reward tab
 
 Repeatable quests follow FTBQ's native reward reset rules. The submitter delivers the current round of AE rewards before resuming the remaining native item auto-claims, so a teammate's claim cannot reset those AE rewards first. See the [review fixes and verification notes](docs/review-fixes-verification.md).
 
-Rewards that do not fit in AE remain buffered in the block and are retried first. While delivery is pending, new submissions, reward claims, and rebinding pause. Mining the block preserves its binding, queue, settings, and buffered rewards. Creative pick block gives a fresh submitter. Only members of the bound team can rebind it. If the player receiving rewards leaves the team, the submitter pauses until a remaining team member rebinds it. The queue is retained.
+Rewards that do not fit in AE remain buffered in the block and are retried first. While delivery is pending, new submissions, reward claims, and rebinding pause. Mining the block preserves its binding, queue, settings, and buffered rewards. Creative pick block gives a fresh submitter. A teammate can select Bind to request a transfer. The current owner receives a private in-game message and has 60 seconds to approve or decline. An offline owner must come online before a transfer can be requested. If the reward recipient leaves the team, the submitter pauses until the transfer to a remaining team member is approved. The queue is retained.
 
 Craft the submitter with a book, an ME Interface, and a Logic Processor in a vertical column in that order.
 
@@ -36,7 +36,7 @@ On placement, the checker binds to the placing player's UUID and their FTBQ team
 
 Fluid totals include native AE fluid storage and filled buckets in item storage at 1,000 mB per bucket. Filled buckets can also match item tasks. Fluid NBT or data components and item matching follow the APIs for each platform version. The checker reads stock without extracting items or draining buckets. Rewards follow standard FTBQ rules.
 
-The interface uses the public `UiButton` API and glass panels from SH-Better-UI. It displays binding, network status, and current stock against each task's total requirement. Pages show six rows and can be changed with buttons or the mouse wheel. Each viewer has their own page. The server validates pause and rebind actions, and only members of the bound team can manage the checker. If the bound player leaves the team, the checker pauses until another member takes over. The world save retains binding and pause state. Mining drops a fresh checker that binds to its next placer.
+The interface uses the public `UiButton` API and glass panels from SH-Better-UI. It displays binding, network status, and current stock against each task's total requirement. Pages show six rows and can be changed with buttons or the mouse wheel. Each viewer has their own page. Members of the bound team can manage the checker. Transfers require the current owner's approval through an in-game message. If the bound player leaves the team, the checker pauses until a transfer to a remaining team member is approved. The world save retains binding and pause state. Mining drops a fresh checker that binds to its next placer.
 
 Craft the checker with a book, an ME Interface, and a Calculation Processor in a vertical column in that order. The light gray AE casing uses purple indicators, vents, and a core to distinguish it from the submitter. Online and offline textures cover all six faces with native 16 × 16 px frames. The animation uses eight frames. The editable texture generator is `tools/GenerateCheckerTextures.java`, and the layout preview generator is `tools/CheckerUiPreview.java`.
 
