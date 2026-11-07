@@ -1,5 +1,23 @@
 # Author: dishanhai — fork verification errors
 
+## 2026-11-07：提交器权限、登记范围与自动领奖顺序
+
+- 状态：resolved；客户端实机验收保留于 TODO。
+- 用户本轮要求修复审查发现的问题，已绑定方块的重绑改为只允许原队伍成员。此规则取代下方“功能保留及命名”记录的历史跨队现场重绑行为；原队伍成员可接替离队领取玩家，保留队列。
+- 单一 taskId 封包继续作为任务锚点，服务端一次登记所属 Quest 全部可消耗、非仅合成 ItemTask，仍验证提交器队伍且去重，不增加新协议。
+- addProgress 会同步触发 FTBQ 自动领物品，必须在进度事件内暂缓受本提交器领奖范围覆盖的物品奖励，再先执行 AE 真实交付／持久缓冲，最后对确实被暂缓的 Quest 恢复原生自动领奖。仅拦绑定玩家仍不够：可重复任务会被队友的个人奖励先行重置；双平台红灯实证后已修正此顺序。
+- 暂缓上下文匹配 TeamData 身份并用 finally 恢复嵌套／异常状态；非物品奖励及其他队伍不受影响。普通个人奖励在同一处理轮恢复，重复任务保留 FTBQ 原生重置规则。
+- 红灯：`build/review-fixes-red.log`、双平台 `build/review-repeatable-red.log`。最终绿灯：双平台 `build/review-fixes-final.log`，各 20 项 GameTest；24／29 项 JUnit、构建与 jar 检查通过。详见 `docs/review-fixes-verification.md`。
+
+## 2026-11-07：审查修复的测试环境与夹具校正
+
+- 状态：resolved。
+- Forge 源码运行只设置 jar manifest 的 MixinConfigs，不会在开发运行加载本模组 Mixin。追踪得到 shouldDefer=true，但 TeamData.claimReward 仍执行；增加 runs 的 `-mixin.config=ftb_quest_nexus.mixins.json` 后，真实重定向参与测试，19 项服务端回归通过。NeoForge 的 [[mixins]] 会在源码运行加载。
+- 2101 的 BaseQuestFile.refreshIDMap 已为 protected，测试用子类公开代理，不能照搬 2001 的 public API。
+- Tristate 的 NBT 保存是布尔值，不能把 team_reward 写成字符串；测试已改用 putBoolean，并分别核对个人／队伍奖励。
+- 权限案例须先把测试玩家置于有效操作距离内，避免因距离拒绝而误以为队伍权限生效。
+- PowerShell 下原生 rg 不展开路径通配符；应明确路径或对目录使用 -g。本轮误用已纠正。
+
 ## 2026-11-07：玻璃覆盖的补丁与验证边界
 
 - 状态：resolved。
@@ -59,3 +77,14 @@
 - 首轮：AE2 的 SRG refmap 在 Mojmap 开发环境找不到 MinecraftServer 目标。根因是开发运行未配置 refmap 再映射；启用 `mixin.env.remapRefMap` 与 `build/createSrgToMcp/output.srg` 后，所有依赖与本模组在服务端正常加载。证据：`build/gametest-server.log`、`build/gametest-server-red.log`。
 - 第二轮：`@GameTestHolder` 会给模板自动添加模组 namespace；`template="ftb_quest_nexus:empty"` 形成重复前缀。修正为 `template="empty"`，`@PrefixGameTestTemplate(false)` 保留；自有模板位于 `data/ftb_quest_nexus/structures/empty.nbt`。Forge 发行 jar 不内含此前假定的 `forge:empty5x5x5`。
 - 改进：在实际 Forge jar 中核验模板资源，且将模板注解值和 Forge 自动 namespace 处理分开检查。不要通过禁用依赖 Mixin 绕过开发映射错误。
+
+## [ERR-20261107-TOOLTIP-001] Modern UI 先绘制的文字被玻璃模糊取样
+
+- 作者：山海／dishanhai；状态：resolved（注册顺序与双平台构建验证），客户端视觉验收见 TODO.md。
+- 用户现象：提交器按钮、信息行和 JEI 物品 tooltip 出现文字模糊、断裂或不可见。
+- 根因证据：实机 ModernUI-Forge-1.20.1-3.12.0.1 的 `UIManagerForge.onRenderTooltipH` 在 HIGH 优先级绘制完整 tooltip，LOW 才取消事件。Nexus 原 NORMAL 监听在两者之间调用 `GlassTooltip.render`，背景模糊将已有 tooltip 文字取样，随后重复绘制。
+- 修正：Forge／NeoForge 的 NexusClient 都用 HIGHEST 优先级注册 tooltip 监听，沿用原有提交器／FTBQ 玻璃画面范围与 GlassTooltip 的事件取消，先于其他渲染器取得绘制权。
+- 回归：新增 TooltipRegistrationTest，直接读取编译后 NexusClient，核验 HIGHEST 和不接收已取消事件的注册重载；Forge 修改前 1 项失败，修改后 Forge 25／NeoForge 30 项 JUnit 全通过。
+- 打包：Forge test／jar／reobfJar、NeoForge test／build／verifyModJar 通过，Forge 正式 jar 与 reobfJar/output.jar 的 SHA-256 一致。
+- 构建环境：首次并发构建的 Forge 测试 worker 遇到本机 socket 消息读取与连接拒绝，退出码 1。随后串行执行并设置进程 TEMP／TMP 为 C:\jtmp、max-workers=1，退出码 0；无法仅凭此次重跑判定环境故障的唯一原因。
+- 改进：接管 tooltip 前先核验其他监听器实际绘制与取消的优先级，避免只调整模糊半径或文字 Z 层；源码／字节码检查不代替 GPU 实机验收。

@@ -2,6 +2,10 @@
 
 作者：dishanhai。獨立版本線，保留根目錄 Forge 1.20.1。
 
+- [x] 三项审查修复完成：29 项 JUnit、20 项服务端 GameTest、正式构建与 verifyModJar 通过；范围与产物见 `../docs/review-fixes-verification.md`。
+
+- [ ] 审查修复实机验收：跨队拒绝重绑、原队伍成员接替离队玩家、多物品目标一次登记、自动物品奖励回 AE（含满盘、可重复任务与队友个人奖励）。见 `../docs/review-fixes-verification.md`。
+
 - [x] FTBQ 玻璃覆盖基础验证：客户端配置与主题适配编译成功；29 项 JUnit（含共享策略与实际 FTBQ／FTB Library 字节码契约）通过，`verifyModJar` 通过，独立专用服务器 11 项 GameTest 通过。
 
 - [ ] FTBQ 玻璃覆盖实机验收：原版／玻璃配置切换及重开生效、透明度、0／默认／最大模糊半径；确认无关 FTB Library 界面保持原样。
