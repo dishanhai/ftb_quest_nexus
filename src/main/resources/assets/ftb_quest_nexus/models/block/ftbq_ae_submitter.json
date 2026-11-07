@@ -1,101 +1,39 @@
 {
+  "__comment": "Author: dishanhai. Light AE casing with state-specific indicator textures.",
   "parent": "minecraft:block/block",
   "render_type": "minecraft:cutout",
   "textures": {
-    "particle": "ftb_quest_nexus:block/casings/ftbq_ae_submitter_casing",
-    "casing": "ftb_quest_nexus:block/casings/ftbq_ae_submitter_casing",
+    "particle": "#side",
+    "side": "ftb_quest_nexus:block/casings/ftbq_ae_submitter_casing",
     "front": "ftb_quest_nexus:block/machine/part/ftbq_ae_submitter/overlay_front",
-    "glow": "ftb_quest_nexus:block/machine/part/ftbq_ae_submitter/overlay_front_emissive"
+    "back": "ftb_quest_nexus:block/machine/part/ftbq_ae_submitter/overlay_back",
+    "top": "ftb_quest_nexus:block/machine/part/ftbq_ae_submitter/overlay_top",
+    "bottom": "ftb_quest_nexus:block/machine/part/ftbq_ae_submitter/overlay_bottom",
+    "glow": "ftb_quest_nexus:block/machine/part/ftbq_ae_submitter/overlay_front_emissive_offline"
   },
   "elements": [
     {
-      "from": [
-        0,
-        0,
-        0
-      ],
-      "to": [
-        16,
-        16,
-        16
-      ],
+      "from": [0, 0, 0],
+      "to": [16, 16, 16],
       "faces": {
-        "north": {
-          "texture": "#casing",
-          "cullface": "north"
-        },
-        "south": {
-          "texture": "#casing",
-          "cullface": "south"
-        },
-        "east": {
-          "texture": "#casing",
-          "cullface": "east"
-        },
-        "west": {
-          "texture": "#casing",
-          "cullface": "west"
-        },
-        "up": {
-          "texture": "#casing",
-          "cullface": "up"
-        },
-        "down": {
-          "texture": "#casing",
-          "cullface": "down"
-        }
+        "north": {"texture": "#front", "cullface": "north"},
+        "south": {"texture": "#back", "cullface": "south"},
+        "east": {"texture": "#side", "uv": [16, 0, 0, 16], "cullface": "east"},
+        "west": {"texture": "#side", "cullface": "west"},
+        "up": {"texture": "#top", "cullface": "up"},
+        "down": {"texture": "#bottom", "cullface": "down"}
       }
     },
     {
-      "from": [
-        0,
-        0,
-        -0.005
-      ],
-      "to": [
-        16,
-        16,
-        -0.005
-      ],
-      "shade": false,
-      "faces": {
-        "north": {
-          "texture": "#front",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        }
-      }
-    },
-    {
-      "from": [
-        0,
-        0,
-        -0.01
-      ],
-      "to": [
-        16,
-        16,
-        -0.01
-      ],
+      "from": [0, 0, -0.001],
+      "to": [16, 16, -0.001],
       "shade": false,
       "faces": {
         "north": {
           "texture": "#glow",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "forge_data": {
-            "block_light": 15,
-            "sky_light": 15,
-            "ambient_occlusion": false
-          }
+          "uv": [0, 0, 16, 16],
+          "cullface": "north",
+          "forge_data": {"block_light": 15, "sky_light": 15, "ambient_occlusion": false}
         }
       }
     }
