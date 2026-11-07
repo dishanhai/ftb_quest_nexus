@@ -2,7 +2,7 @@ package com.dishanhai.ftb_quest_nexus.network;
 
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
 import dev.ftb.mods.ftbquests.quest.ServerQuestFile;
-import dev.ftb.mods.ftbquests.quest.task.ItemTask;
+import com.dishanhai.ftb_quest_nexus.api.ftbq.ConsumableTask;
 import dev.ftb.mods.ftbquests.quest.task.Task;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
@@ -35,8 +35,7 @@ public class FtbqSubmitterListRequestPacket {
     private static void applyOnServer(FtbqSubmitterListRequestPacket packet, ServerPlayer player) {
         if (player == null || ServerQuestFile.INSTANCE == null) return;
         Task task = ServerQuestFile.INSTANCE.getTask(packet.taskId);
-        if (!(task instanceof ItemTask itemTask)) return;
-        if (!itemTask.consumesResources() || itemTask.isOnlyFromCrafting()) return;
+        if (!ConsumableTask.supported(task)) return;
         NexusNetwork.CHANNEL.send(
                 PacketDistributor.PLAYER.with(() -> player),
                 new FtbqSubmitterListResponsePacket(packet.taskId, SubmitterBlockEntity.listSubmitters(player))

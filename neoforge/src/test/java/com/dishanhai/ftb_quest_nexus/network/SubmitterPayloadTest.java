@@ -38,6 +38,25 @@ class SubmitterPayloadTest {
     }
 
     @Test
+    void queueSearchPreservesRevisionAndMatchesAcrossMaskWords() {
+        var buffer = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            var matches = new java.util.BitSet();
+            matches.set(0);
+            matches.set(64);
+            matches.set(529);
+            var packet = new SubmitterSearchPacket(23, Long.MAX_VALUE, true, matches.toLongArray());
+            SubmitterSearchPacket.STREAM_CODEC.encode(buffer, packet);
+            var decoded = SubmitterSearchPacket.STREAM_CODEC.decode(buffer);
+            assertEquals(packet.containerId(), decoded.containerId());
+            assertEquals(packet.revision(), decoded.revision());
+            assertTrue(decoded.filtering());
+            assertEquals(matches, java.util.BitSet.valueOf(decoded.mask()));
+            assertFalse(buffer.isReadable());
+        } finally { buffer.release(); }
+    }
+
+    @Test
     void listRoundTripPreservesDisplayFieldsAndOwnsAnImmutableSnapshot() {
         var original = new ArrayList<SubmitterBlockEntity.SubmitterEntry>();
         var entry = new SubmitterBlockEntity.SubmitterEntry(UUID.randomUUID(), "minecraft:overworld 1 2 3", 4, true);

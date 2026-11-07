@@ -52,6 +52,6 @@ public final class SubmitterBlock extends BaseEntityBlock {
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
     @Override public void appendHoverText(ItemStack stack, @Nullable BlockGetter level, List<Component> tooltip, TooltipFlag flag) {
-        for (int i = 1; i <= 4; i++) tooltip.add(Component.translatable("tooltip.ftb_quest_nexus.submitter." + i));
+        for (int i = 1; i <= 8; i++) tooltip.add(Component.translatable("tooltip.ftb_quest_nexus.submitter." + i));
     }
 }

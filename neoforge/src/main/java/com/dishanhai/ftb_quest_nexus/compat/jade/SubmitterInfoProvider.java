@@ -33,6 +33,8 @@ public final class SubmitterInfoProvider implements IBlockComponentProvider, ISe
         state.putInt("queue", be.getQueueSize());
         state.putString("queueDetail", Component.Serializer.toJson(be.getQueueDetailComponent(), accessor.getLevel().registryAccess()));
         state.putLong("submitted", be.getLastSubmitted());
+        state.putLong("submittedFluid", be.getLastSubmittedFluid());
+        state.putBoolean("matching", be.isMatching());
         state.putLong("rewards", be.getLastClaimedRewards());
         state.putBoolean("suppress", be.isSuppressCompletionToast());
         state.putBoolean("queuedOnly", be.isClaimOnlyQueuedRewards());
@@ -54,9 +56,11 @@ public final class SubmitterInfoProvider implements IBlockComponentProvider, ISe
         Component queueDetail = Component.Serializer.fromJson(state.getString("queueDetail"), accessor.getLevel().registryAccess());
         if (queueDetail != null) tooltip.add(Component.translatable(GUI + "queue_detail", queueDetail));
         tooltip.add(Component.translatable(GUI + "submitted", state.getLong("submitted")));
+        tooltip.add(Component.translatable(GUI + "submitted_fluid", state.getLong("submittedFluid")));
         tooltip.add(Component.translatable(GUI + "rewards", state.getLong("rewards")));
         tooltip.add(Component.translatable(GUI + (state.getBoolean("suppress") ? "toast.suppressed" : "toast.normal")));
-        tooltip.add(Component.translatable(GUI + (state.getBoolean("queuedOnly") ? "claim.queued" : "claim.all")));
+        tooltip.add(Component.translatable(GUI + (state.getBoolean("matching") ? "claim.matched"
+                : state.getBoolean("queuedOnly") ? "claim.queued" : "claim.all")));
     }
 
     private static Component identifier(String text) {

@@ -4,15 +4,21 @@ package com.dishanhai.ftb_quest_nexus.submitter;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
-import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEFluidKey;
 import appeng.api.storage.MEStorage;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.FtbqRewardBuffer;
+import com.dishanhai.ftb_quest_nexus.api.ftbq.ConsumableTask;
 import dev.ftb.mods.ftbquests.integration.item_filtering.ItemMatchingSystem;
 import dev.ftb.mods.ftbquests.quest.TeamData;
 import dev.ftb.mods.ftbquests.quest.loot.WeightedReward;
 import dev.ftb.mods.ftbquests.quest.reward.*;
 import dev.ftb.mods.ftbquests.quest.task.ItemTask;
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import dev.ftb.mods.ftbquests.quest.task.FluidTask;
+import dev.ftb.mods.ftbquests.quest.task.Task;
+import net.minecraft.world.item.Item;
+import net.neoforged.neoforge.fluids.FluidStack;
+import java.util.HashMap;
+import java.util.Map;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -28,28 +34,55 @@ import java.util.UUID;
 final class QuestWork {
     private QuestWork() {}
 
-    static long extract(MEStorage storage, TeamData data, ItemTask task, IActionSource source) {
-        if (data.isLocked() || !data.canStartTasks(task.getQuest()) || task.isOnlyFromCrafting()
-                || !task.consumesResources()) return 0;
+    static long extract(MEStorage storage, TeamData data, Task task, IActionSource source, ItemKeys keys) {
+        if (!ConsumableTask.supported(task) || !ConsumableTask.canSubmit(data, task)) return 0;
         long remaining = task.getMaxProgress() - data.getProgress(task);
         if (remaining <= 0) return 0;
+        if (task instanceof FluidTask fluid) {
+            FluidStack target = new FluidStack(fluid.getFluid(), 1);
+            target.applyComponents(fluid.getFluidDataComponentPatch());
+            AEFluidKey key = AEFluidKey.of(target);
+            return key == null ? 0 : storage.extract(key, remaining, Actionable.MODULATE, source);
+        }
+        return extractItems(storage, (ItemTask) task, source, remaining, keys);
+    }
+
+    private static long extractItems(MEStorage storage, ItemTask task, IActionSource source,
+                                     long remaining, ItemKeys keys) {
         ItemStack target = task.getItemStack();
         boolean filter = ItemMatchingSystem.INSTANCE.isItemFilter(target);
         AEItemKey exact = !target.isEmpty() && !filter && task.test(target) ? AEItemKey.of(target) : null;
         long extracted = exact == null ? 0 : storage.extract(exact, remaining, Actionable.MODULATE, source);
         if (extracted >= remaining) return extracted;
-        // Inventory mutation can invalidate its iterator, so iterate a key snapshot.
-        List<AEItemKey> keys = new ArrayList<>();
-        for (Object2LongMap.Entry<AEKey> entry : storage.getAvailableStacks()) {
-            if (entry.getKey() instanceof AEItemKey key) keys.add(key);
-        }
-        for (AEItemKey key : keys) {
+        boolean sameItem = !filter && !target.isEmpty() && task.getClass() == ItemTask.class;
+        for (AEItemKey key : keys.candidates(storage, sameItem ? target.getItem() : null)) {
+            if (key.equals(exact)) continue;
             if (filter && key.matches(target)) continue;
             if (!task.test(key.toStack())) continue;
             extracted += storage.extract(key, remaining - extracted, Actionable.MODULATE, source);
             if (extracted >= remaining) break;
         }
         return extracted;
+    }
+
+    /** Snapshot fallback keys once per work pass, only when exact extraction cannot finish. */
+    static final class ItemKeys {
+        private final List<AEItemKey> all = new ArrayList<>();
+        private final Map<Item, List<AEItemKey>> byItem = new HashMap<>();
+        private boolean loaded;
+
+        List<AEItemKey> candidates(MEStorage storage, Item item) {
+            if (!loaded) {
+                for (var entry : storage.getAvailableStacks()) {
+                    if (entry.getLongValue() > 0 && entry.getKey() instanceof AEItemKey key) {
+                        all.add(key);
+                        byItem.computeIfAbsent(key.getItem(), ignored -> new ArrayList<>()).add(key);
+                    }
+                }
+                loaded = true;
+            }
+            return item == null ? all : byItem.getOrDefault(item, List.of());
+        }
     }
 
     static long claim(MEStorage storage, TeamData data, UUID playerId, Reward reward,

@@ -11,7 +11,7 @@ import dev.ftb.mods.ftblibrary.ui.Widget;
 import dev.ftb.mods.ftbquests.client.gui.quests.ViewQuestPanel;
 import dev.ftb.mods.ftbquests.quest.Quest;
 import dev.ftb.mods.ftbquests.quest.QuestObjectBase;
-import dev.ftb.mods.ftbquests.quest.task.ItemTask;
+import com.dishanhai.ftb_quest_nexus.api.ftbq.ConsumableTask;
 import dev.ftb.mods.ftbquests.quest.task.Task;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
@@ -35,10 +35,10 @@ public abstract class FtbViewQuestPanelSubmitterButtonMixin {
     private void nexus$addQueueButton(CallbackInfo ci) {
         nexus$queueButton = null;
         if (quest == null) return;
-        ItemTask target = null;
+        Task target = null;
         for (Task task : quest.getTasks()) {
-            if (task instanceof ItemTask item && item.consumesResources() && !item.isOnlyFromCrafting()) {
-                target = item;
+            if (ConsumableTask.supported(task)) {
+                target = task;
                 break;
             }
         }

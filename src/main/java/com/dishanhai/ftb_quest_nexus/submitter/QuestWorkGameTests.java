@@ -39,13 +39,15 @@ public final class QuestWorkGameTests {
         MemoryStorage storage = new MemoryStorage(100);
         AEItemKey iron = AEItemKey.of(Items.IRON_INGOT);
         storage.items.add(iron, 64);
-        long extracted = QuestWork.extract(storage, fixture.data, fixture.task, IActionSource.empty());
+        long extracted = QuestWork.extract(storage, fixture.data, fixture.task, IActionSource.empty(),
+                new QuestWork.ItemKeys());
         helper.assertTrue(extracted == 10, "Extraction exceeded the task requirement");
         helper.assertTrue(storage.items.get(iron) == 54, "AE inventory was not reduced exactly once");
         helper.assertTrue(fixture.data.getProgress(fixture.task) == 0, "Extraction must not also credit task progress");
         fixture.data.addProgress(fixture.task, extracted);
         helper.assertTrue(fixture.data.getProgress(fixture.task) == 10, "Real FTBQ progress API did not accept extraction");
-        helper.assertTrue(QuestWork.extract(storage, fixture.data, fixture.task, IActionSource.empty()) == 0,
+        helper.assertTrue(QuestWork.extract(storage, fixture.data, fixture.task, IActionSource.empty(),
+                new QuestWork.ItemKeys()) == 0,
                 "Completed target was consumed again");
         helper.succeed();
     }
@@ -57,11 +59,13 @@ public final class QuestWorkGameTests {
         AEItemKey iron = AEItemKey.of(Items.IRON_INGOT);
         storage.items.add(iron, 64);
         fixture.task.setConsumeItems(Tristate.FALSE);
-        helper.assertTrue(QuestWork.extract(storage, fixture.data, fixture.task, IActionSource.empty()) == 0,
+        helper.assertTrue(QuestWork.extract(storage, fixture.data, fixture.task, IActionSource.empty(),
+                new QuestWork.ItemKeys()) == 0,
                 "Non-consuming task extracted resources");
         fixture.task.setConsumeItems(Tristate.TRUE);
         fixture.data.setLocked(true);
-        helper.assertTrue(QuestWork.extract(storage, fixture.data, fixture.task, IActionSource.empty()) == 0,
+        helper.assertTrue(QuestWork.extract(storage, fixture.data, fixture.task, IActionSource.empty(),
+                new QuestWork.ItemKeys()) == 0,
                 "Locked team extracted resources");
         helper.assertTrue(storage.items.get(iron) == 64, "Refused tasks changed AE inventory");
         helper.succeed();

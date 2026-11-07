@@ -28,5 +28,11 @@ public final class NexusNetwork {
         CHANNEL.registerMessage(3, CheckerStatePacket.class,
                 CheckerStatePacket::encode, CheckerStatePacket::new,
                 CheckerStatePacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(4, SubmitterStatePacket.class,
+                SubmitterStatePacket::encode, SubmitterStatePacket::new,
+                SubmitterStatePacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(5, SubmitterSearchPacket.class,
+                SubmitterSearchPacket::encode, SubmitterSearchPacket::new,
+                SubmitterSearchPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
 }
