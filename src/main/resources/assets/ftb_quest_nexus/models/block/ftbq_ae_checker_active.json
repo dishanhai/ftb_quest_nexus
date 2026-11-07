@@ -1,0 +1,11 @@
+{
+  "__comment": "Author: dishanhai. Online state uses the same six-face geometry.",
+  "parent": "ftb_quest_nexus:block/ftbq_ae_checker",
+  "textures": {
+    "side": "ftb_quest_nexus:block/casings/ftbq_ae_checker_casing_active",
+    "front": "ftb_quest_nexus:block/machine/part/ftbq_ae_checker/overlay_front_active",
+    "back": "ftb_quest_nexus:block/machine/part/ftbq_ae_checker/overlay_back_active",
+    "top": "ftb_quest_nexus:block/machine/part/ftbq_ae_checker/overlay_top_active",
+    "glow": "ftb_quest_nexus:block/machine/part/ftbq_ae_checker/overlay_front_emissive"
+  }
+}

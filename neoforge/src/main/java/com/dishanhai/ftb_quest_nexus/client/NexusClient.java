@@ -23,19 +23,22 @@ public final class NexusClient {
     @SubscribeEvent
     public static void registerScreens(RegisterMenuScreensEvent event) {
         event.register(NexusContent.MENU.get(), SubmitterScreen::new);
+        event.register(NexusContent.CHECKER_MENU.get(), CheckerScreen::new);
     }
 
     @SubscribeEvent
     public static void setup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
-            GaussBlur.allowScreen(screen -> screen instanceof SubmitterScreen || QuestUiHooks.isGlass(screen));
+            GaussBlur.allowScreen(screen -> screen instanceof SubmitterScreen || screen instanceof CheckerScreen
+                    || QuestUiHooks.isGlass(screen));
             // Claim the event before other tooltip renderers draw text into the blur input.
             NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, NexusClient::tooltip);
         });
     }
 
     private static void tooltip(RenderTooltipEvent.Pre event) {
-        if (Minecraft.getInstance().screen instanceof SubmitterScreen || QuestUiHooks.isGlass(Minecraft.getInstance().screen)) {
+        if (Minecraft.getInstance().screen instanceof SubmitterScreen || Minecraft.getInstance().screen instanceof CheckerScreen
+                || QuestUiHooks.isGlass(Minecraft.getInstance().screen)) {
             GlassTooltip.render(event);
         }
     }

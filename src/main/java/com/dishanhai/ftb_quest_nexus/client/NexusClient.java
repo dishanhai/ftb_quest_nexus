@@ -24,7 +24,8 @@ public final class NexusClient {
     public static void setup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
             MenuScreens.register(NexusContent.MENU.get(), SubmitterScreen::new);
-            GaussBlur.allowScreen(screen -> screen instanceof SubmitterScreen || QuestGlassUi.active(screen));
+            MenuScreens.register(NexusContent.CHECKER_MENU.get(), CheckerScreen::new);
+            GaussBlur.allowScreen(screen -> screen instanceof SubmitterScreen || screen instanceof CheckerScreen || QuestGlassUi.active(screen));
             // Claim the event before Modern UI's HIGH handler draws text into the blur input.
             MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGHEST, NexusClient::tooltip);
         });
@@ -32,6 +33,6 @@ public final class NexusClient {
 
     private static void tooltip(RenderTooltipEvent.Pre event) {
         var screen = Minecraft.getInstance().screen;
-        if (screen instanceof SubmitterScreen || QuestGlassUi.active(screen)) GlassTooltip.render(event);
+        if (screen instanceof SubmitterScreen || screen instanceof CheckerScreen || QuestGlassUi.active(screen)) GlassTooltip.render(event);
     }
 }

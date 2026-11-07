@@ -1,0 +1,41 @@
+{
+  "__comment": "Author: dishanhai. Six native 16 px faces with state-specific indicator lighting.",
+  "parent": "minecraft:block/block",
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "particle": "#side",
+    "side": "ftb_quest_nexus:block/casings/ftbq_ae_checker_casing",
+    "front": "ftb_quest_nexus:block/machine/part/ftbq_ae_checker/overlay_front",
+    "back": "ftb_quest_nexus:block/machine/part/ftbq_ae_checker/overlay_back",
+    "top": "ftb_quest_nexus:block/machine/part/ftbq_ae_checker/overlay_top",
+    "bottom": "ftb_quest_nexus:block/machine/part/ftbq_ae_checker/overlay_bottom",
+    "glow": "ftb_quest_nexus:block/machine/part/ftbq_ae_checker/overlay_front_emissive_offline"
+  },
+  "elements": [
+    {
+      "from": [0, 0, 0],
+      "to": [16, 16, 16],
+      "faces": {
+        "north": {"texture": "#front", "cullface": "north"},
+        "south": {"texture": "#back", "cullface": "south"},
+        "east": {"texture": "#side", "uv": [16, 0, 0, 16], "cullface": "east"},
+        "west": {"texture": "#side", "cullface": "west"},
+        "up": {"texture": "#top", "cullface": "up"},
+        "down": {"texture": "#bottom", "cullface": "down"}
+      }
+    },
+    {
+      "from": [0, 0, -0.001],
+      "to": [16, 16, -0.001],
+      "shade": false,
+      "faces": {
+        "north": {
+          "texture": "#glow",
+          "uv": [0, 0, 16, 16],
+          "cullface": "north",
+          "forge_data": {"block_light": 15, "sky_light": 15, "ambient_occlusion": false}
+        }
+      }
+    }
+  ]
+}

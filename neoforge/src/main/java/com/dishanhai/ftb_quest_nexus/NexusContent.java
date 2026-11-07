@@ -3,6 +3,9 @@ package com.dishanhai.ftb_quest_nexus;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlock;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterMenu;
+import com.dishanhai.ftb_quest_nexus.checker.CheckerBlock;
+import com.dishanhai.ftb_quest_nexus.checker.CheckerBlockEntity;
+import com.dishanhai.ftb_quest_nexus.checker.CheckerMenu;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
@@ -27,6 +30,15 @@ public final class NexusContent {
                     () -> BlockEntityType.Builder.of(SubmitterBlockEntity::new, SUBMITTER.get()).build(null));
     public static final DeferredHolder<MenuType<?>, MenuType<SubmitterMenu>> MENU =
             MENUS.register("ftbq_ae_submitter", () -> IMenuTypeExtension.create(SubmitterMenu::new));
+    public static final DeferredHolder<Block, CheckerBlock> CHECKER =
+            BLOCKS.register("ftbq_ae_checker", () -> new CheckerBlock());
+    public static final DeferredHolder<Item, Item> CHECKER_ITEM = ITEMS.register("ftbq_ae_checker",
+            () -> new BlockItem(CHECKER.get(), new Item.Properties().stacksTo(1)));
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<CheckerBlockEntity>> CHECKER_BLOCK_ENTITY =
+            BLOCK_ENTITIES.register("ftbq_ae_checker",
+                    () -> BlockEntityType.Builder.of(CheckerBlockEntity::new, CHECKER.get()).build(null));
+    public static final DeferredHolder<MenuType<?>, MenuType<CheckerMenu>> CHECKER_MENU =
+            MENUS.register("ftbq_ae_checker", () -> IMenuTypeExtension.create(CheckerMenu::new));
 
     private NexusContent() {}
 }
