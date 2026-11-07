@@ -8,6 +8,9 @@ import com.dishanhai.ftb_quest_nexus.config.ClientUiConfig;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
+import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.CreativeModeTab;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
 
 /** Author: dishanhai. Independent FTB Quests extensions. */
@@ -23,6 +26,14 @@ public final class QuestNexus {
         NexusContent.BLOCK_ENTITIES.register(bus);
         NexusContent.MENUS.register(bus);
         NexusNetwork.init();
+        bus.addListener(QuestNexus::buildCreativeTab);
         MinecraftForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> SubmitterBlockEntity.clearLoadedSubmitters());
+    }
+
+    private static void buildCreativeTab(BuildCreativeModeTabContentsEvent event) {
+        if (event.getTabKey().equals(CreativeModeTabs.FUNCTIONAL_BLOCKS)) {
+            event.accept(NexusContent.ITEM.get(), CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS);
+            event.accept(NexusContent.CHECKER_ITEM.get(), CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS);
+        }
     }
 }

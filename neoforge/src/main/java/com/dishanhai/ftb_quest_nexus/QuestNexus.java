@@ -9,6 +9,9 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
+import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.CreativeModeTab;
 
 /** Author: dishanhai. Independent FTB Quests extensions for NeoForge. */
 @Mod(QuestNexus.MOD_ID)
@@ -22,6 +25,14 @@ public final class QuestNexus {
         NexusContent.BLOCK_ENTITIES.register(bus);
         NexusContent.MENUS.register(bus);
         bus.addListener(NexusNetwork::register);
+        bus.addListener(QuestNexus::buildCreativeTab);
         NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> SubmitterBlockEntity.clearLoadedSubmitters());
+    }
+
+    private static void buildCreativeTab(BuildCreativeModeTabContentsEvent event) {
+        if (event.getTabKey().equals(CreativeModeTabs.FUNCTIONAL_BLOCKS)) {
+            event.accept(NexusContent.ITEM.get(), CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS);
+            event.accept(NexusContent.CHECKER_ITEM.get(), CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS);
+        }
     }
 }
