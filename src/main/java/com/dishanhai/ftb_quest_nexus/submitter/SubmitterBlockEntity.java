@@ -10,6 +10,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.storage.MEStorage;
 import appeng.api.util.AECableType;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.FtbqRewardBuffer;
+import com.dishanhai.ftb_quest_nexus.api.ftbq.FtbqAutoClaimDeferral;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.FtbqSubmitterToastSuppressor;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.TaskQueue;
 import com.dishanhai.ftb_quest_nexus.NexusContent;
@@ -117,10 +118,10 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
     public boolean applyAction(ServerPlayer player, int action) {
         if (level == null || level.isClientSide || player.level() != level
                 || !worldPosition.closerToCenterThan(player.position(), 8.0)
-                || (action != 0 && !canManage(player))) return false;
+                || !canManage(player)) return false;
         switch (action) {
             case 0 -> {
-                // Rebinding uses the acting player's real team, including after leaving the old team.
+                // A remaining member of the bound team can replace a reward player who left.
                 if (!pendingRewards.isEmpty()) { status("pending_rebind"); break; }
                 TeamData data = playerData(player);
                 if (data == null) { status("quests_unavailable"); break; }
@@ -173,27 +174,32 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
         UUID currentTeam = FTBTeamsAPI.api().getManager().getTeamForPlayerID(playerId)
                 .map(team -> team.getTeamId()).orElse(null);
         if (!teamId.equals(currentTeam)) { status("player_left"); return; }
+        Set<Quest> rewardQuests = rewardQuests(file);
+        Set<Quest> deferredAutoClaims = new LinkedHashSet<>();
         for (Long taskId : queue.list()) {
             Task task = file.getTask(taskId);
             if (!(task instanceof ItemTask itemTask)) { queue.remove(taskId); setChanged(); continue; }
             if (data.isCompleted(itemTask)) continue;
             long submitted = QuestWork.extract(storage, data, itemTask, source);
             if (submitted <= 0) continue;
-            if (suppressCompletionToast) FtbqSubmitterToastSuppressor.runSuppressed(() -> data.addProgress(itemTask, submitted));
-            else data.addProgress(itemTask, submitted);
+            deferredAutoClaims.addAll(FtbqAutoClaimDeferral.run(data,
+                    reward -> rewardQuests.contains(reward.getQuest()) && QuestWork.canClaim(reward), () -> {
+                        if (suppressCompletionToast) FtbqSubmitterToastSuppressor.runSuppressed(() -> data.addProgress(itemTask, submitted));
+                        else data.addProgress(itemTask, submitted);
+                    }));
             lastSubmitted = submitted;
             setChanged();
             break;
         }
-        claimRewards(file, storage, data, playerId, source);
+        claimRewards(rewardQuests, storage, data, playerId, source);
+        deferredAutoClaims.forEach(data::checkAutoCompletion);
         queueSize = queue.size();
         if (!pendingRewards.isEmpty()) status("pending_rewards");
         else if (lastSubmitted > 0 || lastClaimedRewards > 0) status("worked", lastSubmitted, lastClaimedRewards);
         else status(queue.isEmpty() ? "waiting" : "missing_items");
     }
 
-    private void claimRewards(ServerQuestFile file, MEStorage storage, TeamData data, UUID playerId, IActionSource source) {
-        if (!(level instanceof ServerLevel serverLevel)) return;
+    private Set<Quest> rewardQuests(ServerQuestFile file) {
         Set<Quest> quests = new LinkedHashSet<>();
         if (claimOnlyQueuedRewards) {
             for (Long id : queue.list()) {
@@ -201,6 +207,11 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
                 if (task != null && task.getQuest() != null) quests.add(task.getQuest());
             }
         } else file.forAllQuests(quests::add);
+        return quests;
+    }
+
+    private void claimRewards(Set<Quest> quests, MEStorage storage, TeamData data, UUID playerId, IActionSource source) {
+        if (!(level instanceof ServerLevel serverLevel)) return;
         for (Quest quest : quests) {
             if (!data.isCompleted(quest)) continue;
             for (Reward reward : quest.getRewards()) {
@@ -221,7 +232,12 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
         ServerQuestFile file = ServerQuestFile.INSTANCE;
         Task task = file == null ? null : file.getTask(taskId);
         if (!(task instanceof ItemTask itemTask) || !itemTask.consumesResources() || itemTask.isOnlyFromCrafting()) return false;
-        boolean added = entity.queue.add(taskId);
+        boolean added = false;
+        for (Task sibling : itemTask.getQuest().getTasks()) {
+            if (sibling instanceof ItemTask item && item.consumesResources() && !item.isOnlyFromCrafting()) {
+                added |= entity.queue.add(sibling.id);
+            }
+        }
         entity.queueSize = entity.queue.size();
         entity.status(added ? "queued" : "already_queued");
         entity.setChanged();

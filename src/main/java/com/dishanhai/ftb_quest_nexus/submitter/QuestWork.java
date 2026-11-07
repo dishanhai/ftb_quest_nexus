@@ -55,7 +55,7 @@ final class QuestWork {
     static long claim(MEStorage storage, TeamData data, UUID playerId, Reward reward,
                       ServerLevel level, BlockEntity blockEntity, FtbqRewardBuffer<AEItemKey> pending,
                       IActionSource source, Runnable changed) {
-        if (!isItemRewardTree(reward, new HashSet<>())) return 0;
+        if (!canClaim(reward)) return 0;
         List<ItemStack> stacks = new ArrayList<>();
         ServerPlayer player = level.getServer().getPlayerList().getPlayer(playerId);
         if (!collectItems(reward, stacks, playerId, player, level, blockEntity)) return 0;
@@ -71,6 +71,10 @@ final class QuestWork {
         prepared.snapshot().forEach(pending::add);
         changed.run();
         return pending.flush((key, amount) -> storage.insert(key, amount, Actionable.MODULATE, source), changed);
+    }
+
+    static boolean canClaim(Reward reward) {
+        return isItemRewardTree(reward, new HashSet<>());
     }
 
     private static boolean isItemRewardTree(Reward reward, Set<Reward> visiting) {
