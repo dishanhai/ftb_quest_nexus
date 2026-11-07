@@ -4,7 +4,7 @@
 
 - [ ] 山海／dishanhai：在 New Age Science and Technology 2.2.1 的隔離存檔驗收「MEK化学品」選單的 16×16 燒瓶圖示、名稱／ID 搜尋、各化學品圖示、編輯設定與重載。用乙烯核對檢查器足量不扣庫存，以及提交器手動入隊／自動匹配後的實際扣量與任務進度。
 
-- [ ] 山海／dishanhai：在 New Age Science and Technology 2.2.1 客户端分别接入 Applied Flux 2.1.6 的通量访问点（输出模式）与 Flux Networks 8.0.0 的通量网络接入点。核对供电端 FE 扣除量与任务进度一致，检查能量筛选、暂停与完成后停止接收。
+- [ ] 山海／dishanhai：在 New Age Science and Technology 2.2.1 客户端断开检查器的 ME 网络，分别直连 Applied Flux 2.1.6 的通量访问点（输出模式）与 Flux Networks 8.0.0 的通量网络接入点。核对供电端 FE 扣除量与任务进度一致，检查能量筛选、暂停与完成后停止接收。重新接入 ME 网络后确认库存检查恢复。
 
 - [x] 2026-11-07 修复创造栏／JEI 目录遗漏。提交器与检查器加入原版功能方块及搜索目录，普通玩家与 OP 的原生重建测试通过；39 项 JUnit、37 项 GameTest、build／verifyModJar 通过。新增功能目录的实机画面待验见根 TODO。
 

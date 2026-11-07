@@ -402,16 +402,14 @@ public final class CheckerGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 100)
-    public static void forgeEnergyCapabilityCreditsOnlyAcceptedEnergy(GameTestHelper helper) {
+    public static void forgeEnergyCapabilityCreditsOnlyAcceptedEnergyWithoutAePower(GameTestHelper helper) {
         BlockPos pos = new BlockPos(1, 1, 1);
-        helper.setBlock(pos.east(), AEBlocks.CREATIVE_ENERGY_CELL.block());
-        // Let the power source initialize its ME node before the checker discovers the grid.
-        helper.runAfterDelay(5, () -> helper.setBlock(pos, NexusContent.CHECKER.get()));
-        helper.succeedWhen(() -> {
+        helper.setBlock(pos, NexusContent.CHECKER.get());
+        helper.runAfterDelay(20, () -> {
             CheckerBlockEntity entity = (CheckerBlockEntity) helper.getBlockEntity(pos);
-            helper.assertTrue(entity != null && entity.getMainNode().isOnline(), "Checker AE network is still booting");
+            helper.assertTrue(entity != null && !entity.getMainNode().isOnline(), "Checker unexpectedly has AE power");
             var energy = helper.getLevel().getCapability(Capabilities.EnergyStorage.BLOCK,
-                    helper.absolutePos(pos), Direction.WEST);
+                    helper.absolutePos(pos), Direction.UP);
             helper.assertTrue(energy != null, "Checker did not expose the standard FE capability");
             helper.assertTrue(energy.receiveEnergy(1000, false) == 0, "Unbound checker accepted FE");
             ServerQuestFile previous = ServerQuestFile.INSTANCE;
@@ -426,7 +424,9 @@ public final class CheckerGameTests {
             try {
                 ServerQuestFile.INSTANCE = f.file;
                 entity.bindPlacer(owner);
-                runNetworkScan(entity);
+                runScan(entity);
+                helper.assertTrue(entity.writeClientState(0).getString("status").equals("energy_ready"),
+                        "Checker did not report FE availability while AE was offline");
                 helper.assertTrue(energy.canReceive() && !energy.canExtract(), "Checker is not an FE input");
                 helper.assertTrue(energy.receiveEnergy(4000, true) == 1000 && f.data.getProgress(task) == 0,
                         "FE simulation changed progress or ignored the input limit");
@@ -435,18 +435,21 @@ public final class CheckerGameTests {
                 helper.assertTrue(entity.applyAction(owner, 1) && energy.receiveEnergy(1000, false) == 0,
                         "Paused checker accepted FE");
                 helper.assertTrue(entity.applyAction(owner, 1), "Checker did not resume");
-                runNetworkScan(entity);
+                runScan(entity);
                 helper.assertTrue(energy.receiveEnergy(4000, false) == 1000
                                 && energy.receiveEnergy(4000, false) == 300 && f.data.isCompleted(task)
                                 && energy.receiveEnergy(4000, false) == 0,
                         "FE input did not stop exactly at completion");
-                entity.scanInventory(f.file, f.data, new InventoryCheck(new MemoryStorage()));
+                entity.addMenuViewer();
+                runScan(entity);
+                entity.removeMenuViewer();
                 var row = entity.getRows().stream().filter(entry -> entry.taskId() == task.id).findFirst();
                 helper.assertTrue(row.isPresent() && row.get().completed() && row.get().available() == 2300,
                         "Checker catalog did not show submitted FE");
             } finally {
                 ServerQuestFile.INSTANCE = previous;
             }
+            helper.succeed();
         });
     }
 
@@ -519,6 +522,14 @@ public final class CheckerGameTests {
             var online = CheckerBlockEntity.class.getDeclaredField("online");
             online.setAccessible(true);
             online.setBoolean(entity, true);
+        } catch (ReflectiveOperationException exception) {
+            throw new AssertionError(exception);
+        }
+        runScan(entity);
+    }
+
+    private static void runScan(CheckerBlockEntity entity) {
+        try {
             var scan = CheckerBlockEntity.class.getDeclaredMethod("scan");
             scan.setAccessible(true);
             scan.invoke(entity);

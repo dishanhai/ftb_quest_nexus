@@ -160,7 +160,7 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
         EnergyTarget target = energyTarget;
         if (offered <= 0 || target == null || paused || isRemoved()
                 || !(level instanceof ServerLevel server) || !server.getServer().isSameThread()
-                || !mainNode.isOnline() || !isBoundTeamCurrent()) return 0;
+                || !isBoundTeamCurrent()) return 0;
         ServerQuestFile file = ServerQuestFile.INSTANCE;
         ForgeEnergyTask task = target.task();
         if (file == null || file != task.getQuestFile() || target.revision() != FtbqQuestFileRevision.get(file)
@@ -195,16 +195,16 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
         chemicalTaskCount = 0;
         energyTarget = null;
         if (paused) { status = "paused"; return; }
-        if (!online || mainNode.getGrid() == null) { status = "offline"; return; }
         ServerQuestFile file = ServerQuestFile.INSTANCE;
         if (file == null) { status = "quests_unavailable"; return; }
         if (playerId == null || teamId == null) { status = "unbound"; return; }
         if (!isBoundTeamCurrent()) { status = "player_left"; return; }
         TeamData data = file.getOrCreateTeamData(teamId);
         if (data.isLocked()) { status = "locked"; return; }
-        scanInventory(file, data, new InventoryCheck(mainNode.getGrid().getStorageService().getInventory()),
-                menuViewers > 0);
-        status = "scanned";
+        var grid = online ? mainNode.getGrid() : null;
+        var inventory = grid == null ? null : new InventoryCheck(grid.getStorageService().getInventory());
+        scanInventory(file, data, inventory, menuViewers > 0);
+        status = inventory != null ? "scanned" : energyTarget != null ? "energy_ready" : "offline";
     }
 
     void scanInventory(ServerQuestFile file, TeamData data, InventoryCheck inventory) {
@@ -231,7 +231,7 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
                 }
                 continue;
             }
-            if (!InventoryCheck.supported(task) || (!catalog && task.consumesResources())
+            if (inventory == null || !InventoryCheck.supported(task) || (!catalog && task.consumesResources())
                     || data.isCompleted(task)) continue;
             if (incomplete == null) incomplete = new HashSet<>();
             incomplete.add(task);
@@ -247,7 +247,7 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
                 }
                 continue;
             }
-            if (!InventoryCheck.supported(task)) continue;
+            if (inventory == null || !InventoryCheck.supported(task)) continue;
             boolean wasCompleted = incomplete == null || !incomplete.contains(task);
             boolean canComplete = !wasCompleted && !roundReset && !task.consumesResources();
             long required = task.getMaxProgress();
