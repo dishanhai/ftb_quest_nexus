@@ -77,7 +77,7 @@ neoForge {
 }
 
 processResources {
-    from('../src/main/resources') { include 'assets/**' }
+    from('../src/main/resources') { include 'assets/**', 'ftb-quest-nexus-icon.png' }
     from('../src/main/resources/data/ftb_quest_nexus/structures') { into 'data/ftb_quest_nexus/structure' }
     def props = [mod_id: mod_id, mod_name: mod_name, mod_version: mod_version,
                  mod_authors: mod_authors, neo_version: neo_version]
