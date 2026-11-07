@@ -2,7 +2,7 @@
 
 Author: dishanhai（山海恒长在）。项目名称：FTB Quest Nexus；mod ID：`ftb_quest_nexus`。
 
-本项目在原作者授权的本地工作区中，由 `C:\Users\dishanhai\Desktop\gt_shanhai` 的 FTBQ AE 自动提交器功能 fork。原项目当前参考提交：`590348e209f8892632eae89d6f894bf235435fe3`（2026-11-07 核验）。原项目未删除或替换。
+本项目由 `C:\Users\dishanhai\Desktop\gt_shanhai` 的 FTBQ AE 自动提交器功能 fork。原项目当前参考提交：`590348e209f8892632eae89d6f894bf235435fe3`（2026-11-07 核验）。原项目由dishanhai编写。
 
 ## 复用与改编
 
@@ -19,4 +19,4 @@ Author: dishanhai（山海恒长在）。项目名称：FTB Quest Nexus；mod ID
 
 Forge、AE2、FTB Quests、FTB Teams、FTB Library、Architectury、GuideME、Jade、SH-Better-UI 及 KotlinForForge 的 jar 仅作为本机编译／运行依赖。各依赖保留自身的许可，不包含在本模组主 jar 中；`libs/` 不作为本项目源码发布内容。
 
-本次交付不建立远端仓库或发布依赖文件。原作者文件沿用 All Rights Reserved，见 LICENSE。
+本次交付不建立远端仓库或发布依赖文件。
