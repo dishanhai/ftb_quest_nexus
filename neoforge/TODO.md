@@ -2,6 +2,11 @@
 
 作者：dishanhai。獨立版本線，保留根目錄 Forge 1.20.1。
 
+- [x] 2026-11-07 修复创造栏／JEI 目录遗漏。提交器与检查器加入原版功能方块及搜索目录，普通玩家与 OP 的原生重建测试通过；39 项 JUnit、37 项 GameTest、build／verifyModJar 通过。新增功能目录的实机画面待验见根 TODO。
+
+- [x] 2026-11-07 降低依赖下限并按最低版本构建：NeoForge 21.1.251、FTB Quests 2101.1.36、FTB Library 2101.1.37、FTB Teams 2101.1.11。Nexus 39 项 JUnit、33 项服务端 GameTest、build／verifyModJar 通过，SH-Better-UI 179 项 JUnit、build／verifyLibraryJar 通过，两个正式 jar 的依赖范围已核对。
+- [ ] 在上述最低版本组合中验收客户端启动、FTBQ 原版／玻璃界面、提交器与检查器。用户提供的 RawOutput.log 另有 CustomSkinLoader 的 `IFakeIResourceManager$V1` 缺类崩溃，需单独排查。
+
 - [x] 三项审查修复完成：29 项 JUnit、20 项服务端 GameTest、正式构建与 verifyModJar 通过；范围与产物见 `../docs/review-fixes-verification.md`。
 
 - [ ] 审查修复实机验收：跨队拒绝重绑、原队伍成员接替离队玩家、多物品目标一次登记、自动物品奖励回 AE（含满盘、可重复任务与队友个人奖励）。见 `../docs/review-fixes-verification.md`。
