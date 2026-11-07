@@ -12,11 +12,14 @@ import appeng.api.util.AECableType;
 import com.dishanhai.ftb_quest_nexus.NexusContent;
 import com.dishanhai.ftb_quest_nexus.api.BindingTransfer;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.ConsumableTask;
+import com.dishanhai.ftb_quest_nexus.api.ftbq.FtbqQuestFileRevision;
+import com.dishanhai.ftb_quest_nexus.network.CheckerFluxPackets.Option;
 import dev.ftb.mods.ftbquests.quest.ServerQuestFile;
 import dev.ftb.mods.ftbquests.quest.Quest;
 import dev.ftb.mods.ftbquests.quest.TeamData;
 import dev.ftb.mods.ftbquests.quest.task.FluidTask;
 import dev.ftb.mods.ftbquests.quest.task.Task;
+import dev.ftb.mods.ftbquests.quest.task.forge.ForgeEnergyTask;
 import dev.ftb.mods.ftbteams.api.FTBTeamsAPI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -34,6 +37,13 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.energy.IEnergyStorage;
+import net.minecraftforge.fml.ModList;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -56,6 +66,19 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
     private int completedLastScan;
     private List<CheckRow> rows = List.of();
     private int menuViewers;
+    private EnergyTarget energyTarget;
+    private int fluxNetworkId = -1;
+    private Runnable unloadFluxConnection;
+    private long lastFluxSelectionTick = Long.MIN_VALUE;
+    private final IEnergyStorage energyInput = new IEnergyStorage() {
+        @Override public int receiveEnergy(int amount, boolean simulate) { return acceptEnergy(amount, simulate); }
+        @Override public int extractEnergy(int amount, boolean simulate) { return 0; }
+        @Override public int getEnergyStored() { return 0; }
+        @Override public int getMaxEnergyStored() { return acceptEnergy(Integer.MAX_VALUE, true); }
+        @Override public boolean canExtract() { return false; }
+        @Override public boolean canReceive() { return true; }
+    };
+    private LazyOptional<IEnergyStorage> energyCapability = LazyOptional.of(() -> energyInput);
 
     public CheckerBlockEntity(BlockPos pos, BlockState state) {
         super(NexusContent.CHECKER_BLOCK_ENTITY.get(), pos, state);
@@ -86,9 +109,14 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
 
     private void bindPlayer(ServerPlayer player) {
         TeamData data = playerData(player);
+        if (!player.getUUID().equals(playerId) || data == null || !data.getTeamId().equals(teamId)) {
+            unloadFluxDevice();
+            setFluxNetworkId(-1);
+        }
         playerId = player.getUUID();
         teamId = data == null ? null : data.getTeamId();
         mainNode.setOwningPlayer(player);
+        energyTarget = null;
         rows = List.of();
         itemTaskCount = 0;
         fluidTaskCount = 0;
@@ -111,6 +139,7 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
             bindPlayer(player);
         } else if (action == 1) {
             paused = !paused;
+            energyTarget = null;
             status = paused ? "paused" : "waiting";
             setChanged();
         } else return false;
@@ -131,6 +160,10 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, CheckerBlockEntity entity) {
         if (level.isClientSide || (level.getGameTime() + pos.asLong()) % 20 != 0) return;
+        if (entity.fluxNetworkId >= 0 && entity.unloadFluxConnection == null
+                && entity.isBoundTeamCurrent() && ModList.get().isLoaded("fluxnetworks")) {
+            entity.unloadFluxConnection = CheckerFluxDevice.restore(entity, entity.fluxNetworkId);
+        }
         entity.online = entity.mainNode.isOnline();
         if (state.getValue(CheckerBlock.ONLINE) != entity.online) {
             level.setBlock(pos, state.setValue(CheckerBlock.ONLINE, entity.online), 2);
@@ -138,24 +171,106 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
         entity.scan();
     }
 
+    UUID boundPlayerId() { return playerId; }
+
+    public boolean canManageFlux(ServerPlayer player) {
+        return ModList.get().isLoaded("fluxnetworks") && player.getUUID().equals(playerId)
+                && isBoundTeamCurrent();
+    }
+
+    public int fluxNetworkId() { return fluxNetworkId; }
+
+    void setFluxNetworkId(int id) {
+        if (fluxNetworkId == id) return;
+        fluxNetworkId = id;
+        setChanged();
+    }
+
+    public List<Option> fluxOptions(ServerPlayer player, int maxOptions) {
+        return canManageFlux(player) ? CheckerFluxDevice.options(player, maxOptions) : List.of();
+    }
+
+    public boolean selectFluxNetwork(ServerPlayer player, int id, String password) {
+        if (!canManageFlux(player) || !CheckerFluxDevice.canSelect(this, player, id, password)) return false;
+        if (id == fluxNetworkId) return true;
+        long tick = level.getGameTime();
+        if (tick == lastFluxSelectionTick) return false;
+        lastFluxSelectionTick = tick;
+        unloadFluxDevice();
+        setFluxNetworkId(-1);
+        if (id < 0) return true;
+        unloadFluxConnection = CheckerFluxDevice.restore(this, id);
+        return unloadFluxConnection != null;
+    }
+
+    private void unloadFluxDevice() {
+        if (unloadFluxConnection == null) return;
+        unloadFluxConnection.run();
+        unloadFluxConnection = null;
+    }
+
+    @Override
+    public <T> @NotNull LazyOptional<T> getCapability(@NotNull Capability<T> capability, @Nullable Direction side) {
+        return capability == ForgeCapabilities.ENERGY ? energyCapability.cast() : super.getCapability(capability, side);
+    }
+
+    @Override
+    public void invalidateCaps() {
+        super.invalidateCaps();
+        energyCapability.invalidate();
+    }
+
+    @Override
+    public void reviveCaps() {
+        super.reviveCaps();
+        energyCapability = LazyOptional.of(() -> energyInput);
+    }
+
+    private boolean isBoundTeamCurrent() {
+        return playerId != null && teamId != null && FTBTeamsAPI.api().getManager().getTeamForPlayerID(playerId)
+                .map(team -> teamId.equals(team.getTeamId())).orElse(false);
+    }
+
+    private int acceptEnergy(int offered, boolean simulate) {
+        EnergyTarget target = energyTarget;
+        if (offered <= 0 || target == null || paused || isRemoved()
+                || !(level instanceof ServerLevel server) || !server.getServer().isSameThread()
+                || !isBoundTeamCurrent()) return 0;
+        ServerQuestFile file = ServerQuestFile.INSTANCE;
+        ForgeEnergyTask task = target.task();
+        if (file == null || file != task.getQuestFile() || target.revision() != FtbqQuestFileRevision.get(file)
+                || file.getTask(task.id) != task) return 0;
+        TeamData data = file.getNullableTeamData(teamId);
+        if (data == null || !ConsumableTask.canSubmit(data, task)) return 0;
+        long remaining = task.getMaxProgress() - data.getProgress(task);
+        int accepted = (int) Math.max(0, Math.min(offered, Math.min(remaining, task.getMaxInput())));
+        if (accepted > 0 && !simulate) {
+            // Progress callbacks can reset a repeatable quest immediately.
+            if (accepted == remaining) energyTarget = null;
+            data.addProgress(task, accepted);
+        }
+        return accepted;
+    }
+
+    private record EnergyTarget(ForgeEnergyTask task, long revision) {}
+
     private void scan() {
         completedLastScan = 0;
         rows = List.of();
         itemTaskCount = 0;
         fluidTaskCount = 0;
+        energyTarget = null;
         if (paused) { status = "paused"; return; }
-        if (!online || mainNode.getGrid() == null) { status = "offline"; return; }
         ServerQuestFile file = ServerQuestFile.INSTANCE;
         if (file == null) { status = "quests_unavailable"; return; }
         if (playerId == null || teamId == null) { status = "unbound"; return; }
-        UUID currentTeam = FTBTeamsAPI.api().getManager().getTeamForPlayerID(playerId)
-                .map(team -> team.getTeamId()).orElse(null);
-        if (!teamId.equals(currentTeam)) { status = "player_left"; return; }
+        if (!isBoundTeamCurrent()) { status = "player_left"; return; }
         TeamData data = file.getOrCreateTeamData(teamId);
         if (data.isLocked()) { status = "locked"; return; }
-        scanInventory(file, data, new InventoryCheck(mainNode.getGrid().getStorageService().getInventory()),
-                menuViewers > 0);
-        status = "scanned";
+        var grid = online ? mainNode.getGrid() : null;
+        var inventory = grid == null ? null : new InventoryCheck(grid.getStorageService().getInventory());
+        scanInventory(file, data, inventory, menuViewers > 0);
+        status = inventory != null ? "scanned" : energyTarget != null ? "energy_ready" : "offline";
     }
 
     void scanInventory(ServerQuestFile file, TeamData data, InventoryCheck inventory) {
@@ -175,7 +290,14 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
         // Capture the round before progress callbacks can reset a repeatable quest.
         Set<Task> incomplete = null;
         for (Task task : quest.getTasks()) {
-            if (!InventoryCheck.supported(task) || (!catalog && task.consumesResources())
+            if (task instanceof ForgeEnergyTask energy) {
+                if (energyTarget == null && energy.getMaxInput() > 0
+                        && data.getProgress(energy) < energy.getMaxProgress() && ConsumableTask.canSubmit(data, energy)) {
+                    energyTarget = new EnergyTarget(energy, FtbqQuestFileRevision.get(quest.getQuestFile()));
+                }
+                continue;
+            }
+            if (inventory == null || !InventoryCheck.supported(task) || (!catalog && task.consumesResources())
                     || data.isCompleted(task)) continue;
             if (incomplete == null) incomplete = new HashSet<>();
             incomplete.add(task);
@@ -183,7 +305,12 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
         if (!catalog && incomplete == null) return;
         boolean roundReset = false;
         for (Task task : quest.getTasks()) {
-            if (!InventoryCheck.supported(task)) continue;
+            if (task instanceof ForgeEnergyTask) {
+                if (catalog) result.add(new CheckRow(task.id, Component.translatable("ftbquests.task.ftbquests.forge_energy"),
+                        false, true, data.getProgress(task), task.getMaxProgress(), data.isCompleted(task)));
+                continue;
+            }
+            if (inventory == null || !InventoryCheck.supported(task)) continue;
             boolean wasCompleted = incomplete == null || !incomplete.contains(task);
             boolean canComplete = !wasCompleted && !roundReset && !task.consumesResources();
             long required = task.getMaxProgress();
@@ -201,7 +328,7 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
             Component title = task instanceof dev.ftb.mods.ftbquests.quest.task.ItemTask item
                     ? item.getItemStack().getHoverName()
                     : Component.translatable(((FluidTask) task).getFluid().getFluidType().getDescriptionId());
-            result.add(new CheckRow(task.id, title, fluid, amount, required, wasCompleted || completedNow));
+            result.add(new CheckRow(task.id, title, fluid, false, amount, required, wasCompleted || completedNow));
         }
     }
 
@@ -222,6 +349,7 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
     public IManagedGridNode getMainNode() { return mainNode; }
 
     private void unloadNode() {
+        unloadFluxDevice();
         if (level != null && !level.isClientSide) mainNode.destroy();
     }
     @Override public void onChunkUnloaded() { unloadNode(); super.onChunkUnloaded(); }
@@ -234,12 +362,16 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
         if (playerId != null) tag.putUUID("checkerPlayer", playerId);
         if (teamId != null) tag.putUUID("checkerTeam", teamId);
         tag.putBoolean("checkerPaused", paused);
+        if (fluxNetworkId >= 0) tag.putInt("checkerFluxNetwork", fluxNetworkId);
         mainNode.saveToNBT(tag);
     }
 
     @Override
     public void load(CompoundTag tag) {
         super.load(tag);
+        unloadFluxDevice();
+        fluxNetworkId = tag.contains("checkerFluxNetwork", Tag.TAG_INT) ? tag.getInt("checkerFluxNetwork") : -1;
+        energyTarget = null;
         playerId = tag.hasUUID("checkerPlayer") ? tag.getUUID("checkerPlayer") : null;
         teamId = tag.hasUUID("checkerTeam") ? tag.getUUID("checkerTeam") : null;
         paused = tag.getBoolean("checkerPaused");
@@ -293,6 +425,7 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
         entry.putLong("id", row.taskId());
         entry.putString("title", Component.Serializer.toJson(row.title()));
         entry.putBoolean("fluid", row.fluid());
+        entry.putBoolean("energy", row.energy());
         entry.putLong("available", row.available());
         entry.putLong("required", row.required());
         entry.putBoolean("completed", row.completed());
@@ -326,7 +459,7 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
     CheckRow readCatalogRow(CompoundTag entry) {
         Component title = Component.Serializer.fromJson(entry.getString("title"));
         return new CheckRow(entry.getLong("id"), title == null ? Component.empty() : title,
-                entry.getBoolean("fluid"), entry.getLong("available"), entry.getLong("required"),
+                entry.getBoolean("fluid"), entry.getBoolean("energy"), entry.getLong("available"), entry.getLong("required"),
                 entry.getBoolean("completed"));
     }
 
@@ -349,9 +482,10 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
     public List<CheckRow> getRows() { return rows; }
     public Component getStatusComponent() { return Component.translatable("status.ftb_quest_nexus.checker." + status); }
 
-    public record CheckRow(long taskId, Component title, boolean fluid, long available, long required, boolean completed) {
+    public record CheckRow(long taskId, Component title, boolean fluid, boolean energy,
+                           long available, long required, boolean completed) {
         boolean sameDefinition(CheckRow other) {
-            return taskId == other.taskId && fluid == other.fluid && required == other.required
+            return taskId == other.taskId && fluid == other.fluid && energy == other.energy && required == other.required
                     && title.equals(other.title);
         }
     }

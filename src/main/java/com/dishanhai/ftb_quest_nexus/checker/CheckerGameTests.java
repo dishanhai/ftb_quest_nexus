@@ -344,6 +344,125 @@ public final class CheckerGameTests {
 
 
     @GameTest(template = "empty", timeoutTicks = 100)
+    public static void checkerJoinsFluxNetworkWithoutPointBlock(GameTestHelper helper) {
+        if (!net.minecraftforge.fml.ModList.get().isLoaded("fluxnetworks")) {
+            helper.succeed();
+            return;
+        }
+        FluxFixture.verifyDirectTransfer(helper);
+    }
+
+    private static final class FluxFixture {
+        private static void verifyDirectTransfer(GameTestHelper helper) {
+            BlockPos pos = new BlockPos(1, 1, 1);
+            helper.setBlock(pos, NexusContent.CHECKER.get());
+            helper.setBlock(pos.east(), sonar.fluxnetworks.register.RegistryBlocks.BASIC_FLUX_STORAGE.get());
+            helper.runAfterDelay(20, () -> {
+                var checker = (CheckerBlockEntity) helper.getBlockEntity(pos);
+                var storage = (sonar.fluxnetworks.common.device.TileFluxStorage) helper.getBlockEntity(pos.east());
+                var owner = player(helper);
+                var outsider = player(helper);
+                owner.setPos(checker.getBlockPos().getCenter());
+                UUID team = TeamManagerImpl.INSTANCE.getTeamForPlayerID(owner.getUUID()).orElseThrow().getTeamId();
+                Fixture f = fixture(helper, team);
+                var task = new dev.ftb.mods.ftbquests.quest.task.forge.ForgeEnergyTask(f.file.newID(), f.quest);
+                task.setValue(2300);
+                f.quest.addTask(task);
+                f.file.refreshIDMap();
+                var networks = sonar.fluxnetworks.common.connection.FluxNetworkData.getInstance();
+                var network = networks.createNetwork(owner, "Nexus GameTest " + owner.getUUID(), 0,
+                        sonar.fluxnetworks.api.network.SecurityLevel.ENCRYPTED, "test");
+                var previous = ServerQuestFile.INSTANCE;
+                try {
+                    ServerQuestFile.INSTANCE = f.file;
+                    checker.bindPlacer(owner);
+                    runScan(checker);
+                    int id = network.getNetworkID();
+                    helper.assertTrue(!checker.getMainNode().isOnline(), "Checker unexpectedly has ME power");
+                    helper.assertTrue(!checker.selectFluxNetwork(outsider, id, "test"),
+                            "A different player changed the checker network");
+                    helper.assertTrue(checker.fluxOptions(owner, 512).stream().anyMatch(option -> option.id() == id)
+                                    && checker.selectFluxNetwork(owner, id, ""),
+                            "Owner could not select the Flux network");
+                    helper.assertTrue(storage.connect(network), "Storage could not join the Flux network");
+                    storage.fillUp();
+                    long before = storage.getTransferBuffer();
+                    for (int cycle = 0; cycle < 3; cycle++) network.onEndServerTick();
+                    helper.assertTrue(f.data.getProgress(task) == 2300 && before - storage.getTransferBuffer() == 2300,
+                            "Flux consumption did not match the energy task progress");
+                    helper.assertTrue(checker.saveWithoutMetadata().getInt("checkerFluxNetwork") == id,
+                            "Selected network was not persisted");
+                    helper.setBlock(pos, net.minecraft.world.level.block.Blocks.AIR);
+                    network.onEndServerTick();
+                    helper.assertTrue(network.getConnectionByPos(net.minecraft.core.GlobalPos.of(
+                                    helper.getLevel().dimension(), helper.absolutePos(pos))) == null,
+                            "Removed checker was still registered in the Flux network");
+                } finally {
+                    ServerQuestFile.INSTANCE = previous;
+                    networks.deleteNetwork(network);
+                }
+                helper.succeed();
+            });
+        }
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void forgeEnergyInputWorksWithoutAePower(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(1, 1, 1);
+        helper.setBlock(pos, NexusContent.CHECKER.get());
+        helper.runAfterDelay(20, () -> {
+            CheckerBlockEntity entity = (CheckerBlockEntity) helper.getBlockEntity(pos);
+            helper.assertTrue(!entity.getMainNode().isOnline(), "Checker unexpectedly has ME power");
+            var capability = net.minecraftforge.common.capabilities.ForgeCapabilities.ENERGY;
+            var input = entity.getCapability(capability, Direction.UP);
+            var energy = input.orElseThrow(() -> new AssertionError("Missing top-side FE input"));
+            for (Direction side : Direction.values()) {
+                helper.assertTrue(entity.getCapability(capability, side).orElse(null) == energy,
+                        "Missing sided FE input");
+            }
+            helper.assertTrue(energy.canReceive() && !energy.canExtract() && energy.receiveEnergy(4000, false) == 0,
+                    "Unbound checker did not expose an input-only FE capability");
+            ServerQuestFile previous = ServerQuestFile.INSTANCE;
+            ServerPlayer owner = player(helper);
+            owner.setPos(entity.getBlockPos().getCenter());
+            UUID team = TeamManagerImpl.INSTANCE.getTeamForPlayerID(owner.getUUID()).orElseThrow().getTeamId();
+            Fixture f = fixture(helper, team);
+            var task = new dev.ftb.mods.ftbquests.quest.task.forge.ForgeEnergyTask(f.file.newID(), f.quest);
+            task.setValue(2300);
+            f.quest.addTask(task);
+            f.file.refreshIDMap();
+            try {
+                ServerQuestFile.INSTANCE = f.file;
+                entity.bindPlacer(owner);
+                entity.addMenuViewer();
+                runScan(entity);
+                helper.assertTrue(energy.receiveEnergy(4000, true) == 1000 && f.data.getProgress(task) == 0,
+                        "FE simulation changed progress or ignored the input limit");
+                helper.assertTrue(energy.receiveEnergy(4000, false) == 1000 && f.data.getProgress(task) == 1000,
+                        "Accepted FE did not advance the task");
+                helper.assertTrue(entity.applyAction(owner, 1) && energy.receiveEnergy(4000, false) == 0,
+                        "Paused checker accepted FE");
+                helper.assertTrue(entity.applyAction(owner, 1), "Checker did not resume");
+                runScan(entity);
+                helper.assertTrue(energy.receiveEnergy(4000, false) == 1000
+                                && energy.receiveEnergy(4000, false) == 300 && f.data.isCompleted(task)
+                                && energy.receiveEnergy(4000, false) == 0,
+                        "FE input did not stop exactly at completion");
+                runScan(entity);
+                var row = entity.getRows().stream().filter(entry -> entry.taskId() == task.id).findFirst().orElseThrow();
+                helper.assertTrue(row.energy() && row.completed() && row.available() == 2300,
+                        "Catalog did not show completed FE");
+                helper.setBlock(pos, net.minecraft.world.level.block.Blocks.AIR);
+                helper.assertTrue(!input.isPresent(), "Removed checker retained its FE capability");
+            } finally {
+                entity.removeMenuViewer();
+                ServerQuestFile.INSTANCE = previous;
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
     public static void boundNetworkUsesRealAeStorageAndPausesWhenOwnerLeaves(GameTestHelper helper) {
         BlockPos pos = new BlockPos(1, 1, 1);
         helper.setBlock(pos, NexusContent.CHECKER.get());
@@ -412,6 +531,14 @@ public final class CheckerGameTests {
             var online = CheckerBlockEntity.class.getDeclaredField("online");
             online.setAccessible(true);
             online.setBoolean(entity, true);
+        } catch (ReflectiveOperationException exception) {
+            throw new AssertionError(exception);
+        }
+        runScan(entity);
+    }
+
+    private static void runScan(CheckerBlockEntity entity) {
+        try {
             var scan = CheckerBlockEntity.class.getDeclaredMethod("scan");
             scan.setAccessible(true);
             scan.invoke(entity);

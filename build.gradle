@@ -12,11 +12,22 @@ base { archivesName = mod_id }
 java { toolchain.languageVersion = JavaLanguageVersion.of(21); withSourcesJar() }
 tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
 repositories { mavenCentral(); flatDir { dirs 'libs' } }
+repositories {
+    maven {
+        url = 'https://www.cursemaven.com'
+        content { includeGroup 'curse.maven' }
+    }
+}
 
 // Develop against the separate UI project; install its release jar as a prerequisite.
 def shBetterUiJar = file(findProperty('shBetterUiJar') ?:
         "../SH-Better-UI/build/libs/sh_better_ui-${sh_better_ui_version}-dev.jar")
 dependencies {
+    def fluxNetworks = 'curse.maven:flux-networks-248020:5234697'
+    compileOnly(fg.deobf(fluxNetworks)) { transitive = false }
+    if (providers.gradleProperty('fluxNetworksRuntime').isPresent()) {
+        runtimeOnly(fg.deobf(fluxNetworks)) { transitive = false }
+    }
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
     ['appliedenergistics2-forge:15.4.10', 'ftb-quests-forge:2001.4.22',
      'ftb-teams-forge:2001.3.2', 'ftb-library-forge:2001.2.13',

@@ -3,6 +3,8 @@ package com.dishanhai.ftb_quest_nexus.client;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.FtbqQuestFileRevision;
 import com.dishanhai.ftb_quest_nexus.checker.CheckerBlockEntity;
 import com.dishanhai.ftb_quest_nexus.checker.CheckerMenu;
+import com.dishanhai.ftb_quest_nexus.network.CheckerFluxPackets;
+import com.dishanhai.ftb_quest_nexus.network.NexusNetwork;
 import com.dishanhai.sh_better_ui.client.blur.GaussBlur;
 import com.dishanhai.sh_better_ui.client.glass.GlassBlur;
 import com.dishanhai.sh_better_ui.client.glass.GlassPalette;
@@ -14,11 +16,13 @@ import com.dishanhai.sh_better_ui.client.gui.search.SearchField;
 import com.dishanhai.sh_better_ui.client.gui.search.SearchIndex;
 import com.dishanhai.sh_better_ui.client.jei.JeiIntegration.Kind;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraftforge.fml.ModList;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -32,6 +36,7 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
     private static final int ROW_HEIGHT = 14;
     private static final List<IngredientFilter> TYPE_FILTERS = List.of(
             IngredientFilter.all(), IngredientFilter.items(), IngredientFilter.fluids());
+    private static final int ENERGY_FILTER = TYPE_FILTERS.size();
     private UiButton pauseButton;
     private UiButton previousButton;
     private UiButton nextButton;
@@ -55,6 +60,7 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
     private long indexedQuestRevision;
     private net.minecraft.locale.Language indexedLanguage;
     private Component hoveredText;
+    private UiButton fluxButton;
 
     public CheckerScreen(CheckerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -98,7 +104,7 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
             refreshResults(true);
         });
         typeButton = addFilterButton(leftPos + 22 + filterWidth * 3, filterWidth, () -> {
-            typeFilter = (typeFilter + 1) % TYPE_FILTERS.size();
+            typeFilter = (typeFilter + 1) % (ENERGY_FILTER + 1);
             refreshResults(true);
         });
         int buttonWidth = (imageWidth - 26) / 4;
@@ -107,8 +113,22 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
         pauseButton = addButton(leftPos + 14 + buttonWidth, buttonY, buttonWidth, "pause", 1);
         previousButton = addButton(leftPos + 18 + buttonWidth * 2, buttonY, buttonWidth, "previous", 2);
         nextButton = addButton(leftPos + 22 + buttonWidth * 3, buttonY, buttonWidth, "next", 3);
+        if (ModList.get().isLoaded("fluxnetworks")) {
+            int fluxWidth = Math.min(106, imageWidth / 3);
+            fluxButton = addRenderableWidget(new UiButton(leftPos + imageWidth - fluxWidth - 10,
+                    topPos + 4, fluxWidth, 18, Component.translatable(GUI + "flux.open"),
+                    ignored -> NexusNetwork.CHANNEL.sendToServer(new CheckerFluxPackets.Request(menu.containerId))));
+        }
         refreshCatalog();
         refreshResults(false);
+    }
+
+    public static void openFluxSelector(CheckerFluxPackets.View view) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.screen instanceof CheckerScreen checker && client.player != null
+                && client.player.containerMenu == checker.menu && checker.menu.containerId == view.containerId()) {
+            client.setScreen(new CheckerFluxScreen(checker, view));
+        }
     }
 
     private UiButton addFilterButton(int x, int width, Runnable action) {
@@ -118,11 +138,13 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
 
     private boolean matchesFilters(int index) {
         var row = indexedRows.get(index);
+        if ((completionFilter != 0 && row.completed() != (completionFilter == 1))
+                || (stockedOnly && row.available() <= 0)) return false;
+        if (row.energy()) return typeFilter == 0 || typeFilter == ENERGY_FILTER;
+        if (typeFilter == ENERGY_FILTER) return false;
         var kinds = TYPE_FILTERS.get(typeFilter).kinds();
         Kind kind = row.fluid() ? Kind.FLUID : Kind.ITEM;
-        return (completionFilter == 0 || row.completed() == (completionFilter == 1))
-                && (!stockedOnly || row.available() > 0)
-                && (kinds.isEmpty() || kinds.contains(kind));
+        return kinds.isEmpty() || kinds.contains(kind);
     }
 
     private void refreshCatalog() {
@@ -210,10 +232,10 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
         String type = switch (typeFilter) {
             case 1 -> "filter.type.item";
             case 2 -> "filter.type.fluid";
-            default -> "filter.type.all";
+            default -> typeFilter == ENERGY_FILTER ? "filter.type.energy" : "filter.type.all";
         };
         typeButton.setMessage(Component.translatable(GUI + type));
-        typeButton.setPreview(Component.translatable(GUI + "filter.type.tooltip"));
+        typeButton.setPreview(Component.translatable(GUI + "filter.type.energy.tooltip"));
         typeButton.setSelected(typeFilter != 0);
     }
 
@@ -225,7 +247,8 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
         theme.rootShadow(graphics, leftPos, topPos, imageWidth, imageHeight);
         theme.backdrop(graphics, leftPos, topPos, imageWidth, imageHeight);
         theme.box(graphics, leftPos, topPos, imageWidth, imageHeight, GlassPalette.ROOT_EDGE, theme.panelBg);
-        text(graphics, mouseX, mouseY, 10, 8, imageWidth - 20, title, GlassPalette.TEXT_HEAD);
+        int titleWidth = fluxButton == null ? imageWidth - 20 : fluxButton.getX() - leftPos - 16;
+        text(graphics, mouseX, mouseY, 10, 8, titleWidth, title, GlassPalette.TEXT_HEAD);
         text(graphics, mouseX, mouseY, 10, 24, imageWidth - 20,
                 Component.translatable(GUI + (checker.isOnline() ? "online" : "offline")), GlassPalette.TEXT);
         text(graphics, mouseX, mouseY, 10, 38, imageWidth - 20,
@@ -267,8 +290,9 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
                           int y, int rowHeight, CheckerBlockEntity.CheckRow row) {
         int color = row.completed() ? 0xFF8CD6B1 : GlassPalette.TEXT;
         Component title = goalTitle(row);
-        Component name = Component.translatable(GUI + (row.fluid() ? "fluid_goal" : "item_goal"), title);
-        Component amount = Component.translatable(GUI + (row.fluid() ? "fluid_amount" : "item_amount"),
+        String kind = row.energy() ? "energy" : row.fluid() ? "fluid" : "item";
+        Component name = Component.translatable(GUI + kind + "_goal", title);
+        Component amount = Component.translatable(GUI + kind + "_amount",
                 row.available(), row.required());
         int offsetY = Math.max(0, (rowHeight - 12) / 2);
         text(graphics, mouseX, mouseY, 14, y + offsetY, amountX - 20, name, color);
@@ -276,7 +300,7 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
         if (mouseX >= leftPos + 8 && mouseX < leftPos + imageWidth - 8
                 && mouseY >= topPos + y && mouseY < topPos + y + rowHeight) {
             hoveredText = Component.translatable(GUI + "goal.tooltip", name, amount,
-                    Component.translatable(GUI + (row.completed() ? "complete" : "waiting")));
+                    Component.translatable(GUI + (row.completed() ? "complete" : row.energy() ? "waiting_energy" : "waiting")));
         }
     }
 

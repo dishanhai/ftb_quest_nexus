@@ -345,7 +345,7 @@ public final class CheckerMenu extends AbstractContainerMenu {
     }
 
     private static CheckerBlockEntity.CheckRow withStock(CheckerBlockEntity.CheckRow row, CompoundTag entry) {
-        return new CheckerBlockEntity.CheckRow(row.taskId(), row.title(), row.fluid(), entry.getLong("available"),
+        return new CheckerBlockEntity.CheckRow(row.taskId(), row.title(), row.fluid(), row.energy(), entry.getLong("available"),
                 row.required(), entry.getBoolean("completed"));
     }
 

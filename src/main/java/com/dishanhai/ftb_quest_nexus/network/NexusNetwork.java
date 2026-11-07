@@ -9,7 +9,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import java.util.Optional;
 
 public final class NexusNetwork {
-    private static final String VERSION = "8";
+    private static final String VERSION = "9";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(QuestNexus.MOD_ID, "main"), () -> VERSION, VERSION::equals, VERSION::equals);
 
@@ -40,5 +40,14 @@ public final class NexusNetwork {
         CHANNEL.registerMessage(7, FtbqChoiceRewardPackets.Selection.class,
                 FtbqChoiceRewardPackets.Selection::encode, FtbqChoiceRewardPackets.Selection::new,
                 FtbqChoiceRewardPackets.Selection::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(8, CheckerFluxPackets.Request.class,
+                CheckerFluxPackets.Request::encode, CheckerFluxPackets.Request::new,
+                CheckerFluxPackets.Request::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(9, CheckerFluxPackets.Selection.class,
+                CheckerFluxPackets.Selection::encode, CheckerFluxPackets.Selection::new,
+                CheckerFluxPackets.Selection::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(10, CheckerFluxPackets.View.class,
+                CheckerFluxPackets.View::encode, CheckerFluxPackets.View::new,
+                CheckerFluxPackets.View::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
 }
