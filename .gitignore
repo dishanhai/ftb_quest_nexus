@@ -6,3 +6,4 @@ libs/runtime/*.jar
 .idea/
 *.iml
 logs/
+/.learnings/
