@@ -1,13 +1,17 @@
 package com.dishanhai.ftb_quest_nexus.checker;
 
 import appeng.api.config.Actionable;
+import appeng.api.networking.GridHelper;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.parts.PartHelper;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
+import appeng.api.util.AEColor;
 import appeng.core.definitions.AEBlocks;
+import appeng.core.definitions.AEParts;
 import com.dishanhai.ftb_quest_nexus.NexusContent;
 import com.dishanhai.ftb_quest_nexus.QuestNexus;
 import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalTask;
@@ -393,11 +397,20 @@ public final class CheckerGameTests {
             CheckerBlockEntity entity = (CheckerBlockEntity) helper.getBlockEntity(pos);
             helper.assertTrue(entity.getMainNode().getNode() != null, "Checker AE node was not created");
             for (Direction side : Direction.values()) {
-                helper.assertTrue(entity.getGridNode(side) == entity.getMainNode().getNode(), "A face cannot join the AE grid");
+                helper.assertTrue(GridHelper.getExposedNode(helper.getLevel(), helper.absolutePos(pos), side)
+                        == entity.getMainNode().getNode(), "AE lookup did not find the checker on " + side);
             }
-            helper.setBlock(pos, net.minecraft.world.level.block.Blocks.AIR);
-            helper.assertTrue(entity.getMainNode().getNode() == null, "Removed checker retained its node");
-            helper.succeed();
+            var cable = PartHelper.setPart(helper.getLevel(), helper.absolutePos(pos.east()), null, null,
+                    AEParts.GLASS_CABLE.item(AEColor.TRANSPARENT));
+            helper.assertTrue(cable != null, "Could not place the late ME cable");
+            helper.runAfterDelay(20, () -> {
+                helper.assertTrue(cable.getGridNode() != null
+                                && cable.getGridNode().getGrid() == entity.getMainNode().getGrid(),
+                        "A cable placed after the checker did not join its grid");
+                helper.setBlock(pos, net.minecraft.world.level.block.Blocks.AIR);
+                helper.assertTrue(entity.getMainNode().getNode() == null, "Removed checker retained its node");
+                helper.succeed();
+            });
         });
     }
 
