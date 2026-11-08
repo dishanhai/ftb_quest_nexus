@@ -1,6 +1,6 @@
 package com.dishanhai.ftb_quest_nexus.mixin;
 
-import com.dishanhai.ftb_quest_nexus.network.FtbqSubmitterListRequestPacket;
+import com.dishanhai.ftb_quest_nexus.client.FtbqSubmitterSelectionClient;
 import net.neoforged.neoforge.network.PacketDistributor;
 import com.dishanhai.ftb_quest_nexus.client.HeaderButtonLayout;
 import dev.ftb.mods.ftblibrary.icon.Icons;
@@ -52,7 +52,10 @@ public abstract class FtbViewQuestPanelSubmitterButtonMixin {
         ViewQuestPanel panel = (ViewQuestPanel) (Object) this;
         nexus$queueButton = new SimpleButton(panel,
                 Component.translatable("gui.ftb_quest_nexus.submitter." + label), Icons.ADD,
-                (widget, mouseButton) -> PacketDistributor.sendToServer(new FtbqSubmitterListRequestPacket(taskId)));
+                (widget, mouseButton) -> {
+                    if (mouseButton.isLeft()) FtbqSubmitterSelectionClient.open(taskId,
+                            PacketDistributor::sendToServer, PacketDistributor::sendToServer);
+                });
         panel.add(nexus$queueButton);
         int size = titleField == null ? 16 : Math.min(16, titleField.height + 2);
         nexus$queueButton.setPosAndSize(4, 4, size, size);

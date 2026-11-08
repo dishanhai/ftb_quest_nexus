@@ -9,7 +9,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import java.util.Optional;
 
 public final class NexusNetwork {
-    private static final String VERSION = "9";
+    private static final String VERSION = "10";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(QuestNexus.MOD_ID, "main"), () -> VERSION, VERSION::equals, VERSION::equals);
 

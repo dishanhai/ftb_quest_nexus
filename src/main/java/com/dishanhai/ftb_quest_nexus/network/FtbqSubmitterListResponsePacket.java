@@ -1,56 +1,24 @@
 package com.dishanhai.ftb_quest_nexus.network;
 
+import com.dishanhai.ftb_quest_nexus.api.ftbq.SubmitterSelectionPage;
 import com.dishanhai.ftb_quest_nexus.client.FtbqSubmitterSelectionClient;
-import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
-import io.netty.handler.codec.DecoderException;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.network.NetworkEvent;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 import java.util.function.Supplier;
 
-public class FtbqSubmitterListResponsePacket {
-    private static final int MAX_ENTRIES = 256;
-
-    private final long taskId;
-    private final List<SubmitterBlockEntity.SubmitterEntry> entries;
-
-    public FtbqSubmitterListResponsePacket(long taskId, List<SubmitterBlockEntity.SubmitterEntry> entries) {
-        this.taskId = taskId;
-        this.entries = entries;
+/** Author: dishanhai. Returns one authorized page to the initiating client screen. */
+public record FtbqSubmitterListResponsePacket(long requestId, long taskId, SubmitterSelectionPage results) {
+    public FtbqSubmitterListResponsePacket(FriendlyByteBuf buffer) {
+        this(buffer.readLong(), buffer.readLong(), SubmitterSelectionPage.decode(buffer));
     }
 
-    public FtbqSubmitterListResponsePacket(FriendlyByteBuf buf) {
-        this.taskId = buf.readLong();
-        int size = buf.readVarInt();
-        if (size < 0 || size > MAX_ENTRIES) {
-            throw new DecoderException("Invalid submitter list size: " + size);
-        }
-        this.entries = new ArrayList<>(size);
-        for (int i = 0; i < size; i++) {
-            UUID id = buf.readUUID();
-            String pos = buf.readUtf(128);
-            int queueSize = buf.readVarInt();
-            boolean online = buf.readBoolean();
-            this.entries.add(new SubmitterBlockEntity.SubmitterEntry(id, pos, queueSize, online));
-        }
-    }
-
-    public void encode(FriendlyByteBuf buf) {
-        buf.writeLong(taskId);
-        int size = Math.min(entries.size(), MAX_ENTRIES);
-        buf.writeVarInt(size);
-        for (int i = 0; i < size; i++) {
-            SubmitterBlockEntity.SubmitterEntry entry = entries.get(i);
-            buf.writeUUID(entry.id());
-            buf.writeUtf(entry.pos(), 128);
-            buf.writeVarInt(entry.queueSize());
-            buf.writeBoolean(entry.online());
-        }
+    public void encode(FriendlyByteBuf buffer) {
+        buffer.writeLong(requestId);
+        buffer.writeLong(taskId);
+        results.encode(buffer);
     }
 
     public static void handle(FtbqSubmitterListResponsePacket packet, Supplier<NetworkEvent.Context> ctx) {
@@ -63,6 +31,6 @@ public class FtbqSubmitterListResponsePacket {
 
     @OnlyIn(Dist.CLIENT)
     private static void handleClient(FtbqSubmitterListResponsePacket packet) {
-        FtbqSubmitterSelectionClient.open(packet.taskId, packet.entries);
+        FtbqSubmitterSelectionClient.receive(packet);
     }
 }

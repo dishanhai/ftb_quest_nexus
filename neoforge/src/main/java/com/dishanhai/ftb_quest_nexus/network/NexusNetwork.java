@@ -16,7 +16,7 @@ public final class NexusNetwork {
     private NexusNetwork() {}
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("8");
+        var registrar = event.registrar("9");
         registrar.playToServer(FtbqSubmitterListRequestPacket.TYPE, FtbqSubmitterListRequestPacket.STREAM_CODEC,
                 FtbqSubmitterListRequestPacket::handle);
         registrar.playToServer(FtbqQueueTaskPacket.TYPE, FtbqQueueTaskPacket.STREAM_CODEC,
@@ -63,7 +63,7 @@ public final class NexusNetwork {
         }
 
         private static void open(FtbqSubmitterListResponsePacket packet) {
-            FtbqSubmitterSelectionClient.open(packet.taskId(), packet.entries());
+            FtbqSubmitterSelectionClient.receive(packet);
         }
 
         private static void choiceView(FtbqChoiceRewardPackets.View packet) {
