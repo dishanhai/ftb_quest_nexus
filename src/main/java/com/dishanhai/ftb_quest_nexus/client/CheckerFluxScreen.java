@@ -4,6 +4,7 @@ import com.dishanhai.ftb_quest_nexus.network.CheckerFluxPackets;
 import com.dishanhai.ftb_quest_nexus.network.NexusNetwork;
 import com.dishanhai.sh_better_ui.client.glass.GlassPalette;
 import com.dishanhai.sh_better_ui.client.glass.GlassTheme;
+import com.dishanhai.sh_better_ui.client.gui.display.GraphicIcon;
 import com.dishanhai.sh_better_ui.client.gui.scaled.GuiRenderUtil;
 import com.dishanhai.sh_better_ui.client.gui.scaled.UiButton;
 import net.minecraft.client.gui.GuiGraphics;
@@ -60,8 +61,10 @@ final class CheckerFluxScreen extends Screen {
         int navWidth = (panelWidth - 20) / 3;
         previous = addRenderableWidget(new UiButton(left + 10, navY, navWidth, 18,
                 Component.translatable(CHECKER + "previous"), ignored -> changePage(-1)));
+        previous.setIcon(GraphicIcon.PREVIOUS);
         next = addRenderableWidget(new UiButton(left + panelWidth - 10 - navWidth, navY, navWidth, 18,
                 Component.translatable(CHECKER + "next"), ignored -> changePage(1)));
+        next.setIcon(GraphicIcon.NEXT);
         Component hint = Component.translatable(KEY + "password");
         password = addRenderableWidget(new EditBox(font, left + 10, navY + 23, panelWidth - 20, 18, hint) {
             @Override
@@ -76,11 +79,14 @@ final class CheckerFluxScreen extends Screen {
         int bottom = navY + 48;
         connect = addRenderableWidget(new UiButton(left + 10, bottom, buttonWidth, 18,
                 Component.translatable(KEY + "connect"), ignored -> apply(selectedNetwork)));
+        connect.setIcon(GraphicIcon.PLUGIN);
         UiButton disconnect = addRenderableWidget(new UiButton(left + 14 + buttonWidth, bottom, buttonWidth, 18,
                 Component.translatable(KEY + "disconnect"), ignored -> apply(DISCONNECTED)));
+        disconnect.setIcon(GraphicIcon.DISABLE);
         disconnect.active = view.currentNetwork() != DISCONNECTED;
-        addRenderableWidget(new UiButton(left + 18 + buttonWidth * 2, bottom, buttonWidth, 18,
+        UiButton back = addRenderableWidget(new UiButton(left + 18 + buttonWidth * 2, bottom, buttonWidth, 18,
                 Component.translatable("gui.back"), ignored -> onClose()));
+        back.setIcon(GraphicIcon.BACK);
         page = Math.min(page, pageCount() - 1);
         updateRows();
     }

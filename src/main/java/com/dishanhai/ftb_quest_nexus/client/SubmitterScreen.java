@@ -6,6 +6,7 @@ import com.dishanhai.sh_better_ui.client.blur.GaussBlur;
 import com.dishanhai.sh_better_ui.client.glass.GlassBlur;
 import com.dishanhai.sh_better_ui.client.glass.GlassPalette;
 import com.dishanhai.sh_better_ui.client.glass.GlassTheme;
+import com.dishanhai.sh_better_ui.client.gui.display.GraphicIcon;
 import com.dishanhai.sh_better_ui.client.gui.scaled.UiButton;
 import com.dishanhai.sh_better_ui.client.gui.search.SearchField;
 import com.dishanhai.sh_better_ui.client.gui.search.SearchIndex;
@@ -33,11 +34,21 @@ import net.minecraft.Util;
 public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu> {
     private static final String GUI = "gui.ftb_quest_nexus.submitter.";
     private static final int LIST_TOP = 134;
+    private static final List<ToolbarAction> TOOLBAR_ACTIONS = List.of(
+            new ToolbarAction("bind", GraphicIcon.USER),
+            new ToolbarAction("clear", GraphicIcon.DELETE),
+            new ToolbarAction("toast", GraphicIcon.BUBBLE),
+            new ToolbarAction("claim", GraphicIcon.DOWNLOAD),
+            new ToolbarAction("previous", GraphicIcon.PREVIOUS),
+            new ToolbarAction("next", GraphicIcon.NEXT),
+            new ToolbarAction("match", GraphicIcon.RUN));
     private UiButton previousButton;
     private UiButton nextButton;
     private UiButton matchButton;
     private UiButton claimButton;
     private UiButton clearButton;
+    private UiButton toastButton;
+    private GraphicIcon queueIcon;
     private Component hoveredText;
     private SearchField<Long> search;
     private SearchIndex<Long> searchIndex = new SearchIndex<>(List.of());
@@ -46,6 +57,8 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
     private long indexedQueueRevision = -1;
     private ClientQuestFile indexedQuestFile;
     private Language indexedLanguage;
+
+    private record ToolbarAction(String key, GraphicIcon icon) {}
 
     public SubmitterScreen(SubmitterMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -67,25 +80,31 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
         imageHeight = Math.min(246, height - 8);
         super.init();
         GlassBlur.warmUp();
+        queueIcon = NexusIcons.available(NexusIcons.QUEUE, null);
         search = addRenderableWidget(new SearchField<>(font, leftPos + imageWidth / 2,
-                topPos + 6, imageWidth / 2 - 10, 14, searchIndex));
+                topPos + 4, imageWidth / 2 - 10, 18, searchIndex));
         search.setMessage(Component.translatable(GUI + "search"));
         search.setHint(Component.translatable(GUI + "search"));
         search.setValue(query);
         search.setResponder(ignored -> applySearch());
         search.setOnSubmit(ignored -> applySearch());
         refreshSearchIndex();
-        String[] keys = {"bind", "clear", "toast", "claim", "previous", "next", "match"};
-        int buttonWidth = (imageWidth - 44) / keys.length;
-        for (int i = 0; i < keys.length; i++) {
+        int buttonWidth = (imageWidth - 44) / TOOLBAR_ACTIONS.size();
+        for (int i = 0; i < TOOLBAR_ACTIONS.size(); i++) {
             final int action = i;
+            ToolbarAction control = TOOLBAR_ACTIONS.get(i);
             UiButton button = new UiButton(leftPos + 10 + i * (buttonWidth + 4),
-                    topPos + imageHeight - 36, buttonWidth, 20, Component.translatable(GUI + keys[i]),
+                    topPos + imageHeight - 36, buttonWidth, 20, Component.translatable(GUI + control.key()),
                     ignored -> sendAction(action));
-            button.setPreview(Component.translatable(GUI + keys[i] + ".tooltip"));
+            button.setIcon(control.icon());
+            button.setPreview(Component.translatable(GUI + control.key() + ".tooltip"));
             addRenderableWidget(button);
             if (i == 1) clearButton = button;
-            if (i == 3) claimButton = button;
+            if (i == 2) toastButton = button;
+            if (i == 3) {
+                claimButton = button;
+                claimButton.setIcon(NexusIcons.available(NexusIcons.REWARD, control.icon()));
+            }
             if (i == 4) previousButton = button;
             if (i == 5) nextButton = button;
             if (i == 6) matchButton = button;
@@ -160,6 +179,8 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
         previousButton.active = menu.getPage() > 0;
         nextButton.active = menu.getPage() + 1 < menu.getPageCount();
         boolean matching = menu.submitter != null && menu.submitter.isMatching();
+        boolean suppressToast = menu.submitter != null && menu.submitter.isSuppressCompletionToast();
+        toastButton.setIcon(suppressToast ? GraphicIcon.HIDE : GraphicIcon.BUBBLE);
         matchButton.setSelected(matching);
         claimButton.active = !matching;
         clearButton.active = !matching;
@@ -174,7 +195,12 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
         theme.box(graphics, leftPos, topPos, imageWidth, imageHeight, GlassPalette.ROOT_EDGE, theme.panelBg);
         SubmitterBlockEntity be = menu.submitter;
         int contentWidth = imageWidth - 20;
-        row(graphics, mouseX, mouseY, 10, 8, imageWidth / 2 - 16, title, GlassPalette.TEXT_HEAD);
+        int titleX = 10;
+        if (queueIcon != null) {
+            queueIcon.draw(graphics, leftPos + titleX, topPos + 6, 1, GlassPalette.TEXT_HEAD);
+            titleX += GraphicIcon.PIXELS + 4;
+        }
+        row(graphics, mouseX, mouseY, titleX, 8, imageWidth / 2 - titleX - 6, title, GlassPalette.TEXT_HEAD);
         row(graphics, mouseX, mouseY, 10, 22, contentWidth,
                 Component.translatable(GUI + (be.isOnline() ? "online" : "offline")), GlassPalette.TEXT);
         row(graphics, mouseX, mouseY, 10, 34, contentWidth,
@@ -231,12 +257,17 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
         var task = file == null || !goal.valid() ? null : file.getTask(goal.taskId());
         Component target = task == null ? goal.title() : Component.translatable(GUI + "target",
                 task.getQuest().getTitle(), task.getTitle());
-        Component name = goal.valid()
-                ? Component.translatable(GUI + (goal.fluid() ? "fluid_goal" : "item_goal"), target) : target;
-        Component amount = goal.valid()
-                ? Component.translatable(GUI + (goal.fluid() ? "fluid_amount" : "item_amount"),
-                        goal.progress(), goal.required())
-                : Component.translatable(GUI + "unavailable");
+        String kind = goal.fluid() ? "fluid"
+                : task instanceof dev.ftb.mods.ftbquests.quest.task.ItemTask ? "item" : "progress";
+        String prefix = GUI;
+        if (task instanceof dev.ftb.mods.ftbquests.quest.task.forge.ForgeEnergyTask) {
+            kind = "energy";
+            prefix = "gui.ftb_quest_nexus.checker.";
+        }
+        Component name = goal.valid() && !kind.equals("progress")
+                ? Component.translatable(prefix + kind + "_goal", target) : target;
+        Component amount = goal.valid() ? Component.translatable(prefix + kind + "_amount",
+                goal.progress(), goal.required()) : Component.translatable(GUI + "unavailable");
         int offsetY = Math.max(0, (rowHeight - 12) / 2);
         row(graphics, mouseX, mouseY, 14, y + offsetY, amountX - 20, name, color);
         row(graphics, mouseX, mouseY, amountX, y + offsetY, imageWidth - amountX - 14, amount, color);

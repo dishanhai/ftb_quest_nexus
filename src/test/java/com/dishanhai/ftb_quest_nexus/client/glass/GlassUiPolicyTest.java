@@ -27,4 +27,13 @@ class GlassUiPolicyTest {
         assertFalse(GlassUiPolicy.isLibraryScreenClass("other.mod.Screen"));
         assertFalse(GlassUiPolicy.isLibraryScreenClass(null));
     }
+
+    @Test void nexusChildPickersInheritThemeOnlyThroughAnOwningParent() {
+        for (String type : new String[] {
+                "com.dishanhai.ftb_quest_nexus.client.FtbqSubmitterSelectionClient",
+                "com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalPicker"}) {
+            assertTrue(GlassUiPolicy.isLibraryScreenClass(type));
+            assertFalse(GlassUiPolicy.isQuestScreenClass(type));
+        }
+    }
 }

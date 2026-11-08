@@ -7,6 +7,7 @@ import com.dishanhai.sh_better_ui.client.blur.GaussBlur;
 import com.dishanhai.sh_better_ui.client.glass.GlassBlur;
 import com.dishanhai.sh_better_ui.client.glass.GlassPalette;
 import com.dishanhai.sh_better_ui.client.glass.GlassTheme;
+import com.dishanhai.sh_better_ui.client.gui.display.GraphicIcon;
 import com.dishanhai.sh_better_ui.client.gui.filter.IngredientFilter;
 import com.dishanhai.sh_better_ui.client.gui.scaled.GuiRenderUtil;
 import com.dishanhai.sh_better_ui.client.gui.scaled.UiButton;
@@ -39,6 +40,7 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
     private UiButton previousButton;
     private UiButton nextButton;
     private UiButton completionButton;
+    private GraphicIcon completionIcon;
     private UiButton stockButton;
     private UiButton sortButton;
     private UiButton typeButton;
@@ -80,6 +82,7 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
         pageSize = Math.max(1, Math.min(6, (imageHeight - LIST_TOP - 40) / ROW_HEIGHT));
         super.init();
         GlassBlur.warmUp();
+        completionIcon = NexusIcons.available(NexusIcons.TASK, GraphicIcon.LIST);
         search = addRenderableWidget(new SearchField<>(font, leftPos + 10, topPos + 98,
                 imageWidth - 20, 18, index));
         search.setMessage(Component.translatable(GUI + "search"));
@@ -107,10 +110,13 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
         });
         int buttonWidth = (imageWidth - 26) / 4;
         int buttonY = topPos + imageHeight - 36;
-        addButton(leftPos + 10, buttonY, buttonWidth, "bind", 0);
+        UiButton bindButton = addButton(leftPos + 10, buttonY, buttonWidth, "bind", 0);
+        setLeadingIconIfLabelFits(bindButton, GraphicIcon.USER);
         pauseButton = addButton(leftPos + 14 + buttonWidth, buttonY, buttonWidth, "pause", 1);
         previousButton = addButton(leftPos + 18 + buttonWidth * 2, buttonY, buttonWidth, "previous", 2);
+        previousButton.setIcon(GraphicIcon.PREVIOUS);
         nextButton = addButton(leftPos + 22 + buttonWidth * 3, buttonY, buttonWidth, "next", 3);
+        nextButton.setIcon(GraphicIcon.NEXT);
         refreshCatalog();
         refreshResults(false);
     }
@@ -184,6 +190,12 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
         return addRenderableWidget(button);
     }
 
+    private void setLeadingIconIfLabelFits(UiButton button, GraphicIcon icon) {
+        // SHBUI reserves 6 units on each edge and 4 between the icon and the label.
+        int labelWidth = button.getWidth() - GraphicIcon.PIXELS - 16;
+        button.setLeadingIcon(font.width(button.getMessage()) <= labelWidth ? icon : null);
+    }
+
     private void sendAction(int action) {
         if (action == 2 || action == 3) {
             page = Math.max(0, Math.min(page + (action == 2 ? -1 : 1), pageCount() - 1));
@@ -199,6 +211,7 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
         if (pauseButton == null || menu.checker == null) return;
         boolean paused = menu.checker.isPaused();
         pauseButton.setMessage(Component.translatable(GUI + (paused ? "resume" : "pause")));
+        setLeadingIconIfLabelFits(pauseButton, paused ? GraphicIcon.RESUME : GraphicIcon.PAUSE);
         pauseButton.setPreview(Component.translatable(GUI + (paused ? "resume" : "pause") + ".tooltip"));
         pauseButton.setSelected(paused);
         previousButton.active = page > 0;
@@ -209,12 +222,15 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
             default -> "filter.all";
         };
         completionButton.setMessage(Component.translatable(GUI + completion));
+        setLeadingIconIfLabelFits(completionButton, completionIcon);
         completionButton.setPreview(Component.translatable(GUI + "filter.completion.tooltip"));
         completionButton.setSelected(completionFilter != 0);
         stockButton.setMessage(Component.translatable(GUI + (stockedOnly ? "filter.stock_or_progress" : "filter.any_stock")));
+        setLeadingIconIfLabelFits(stockButton, GraphicIcon.CACHE);
         stockButton.setPreview(Component.translatable(GUI + "filter.stock_or_progress.tooltip"));
         stockButton.setSelected(stockedOnly);
         sortButton.setMessage(Component.translatable(GUI + (alphabetical ? "sort.az" : "sort.original")));
+        setLeadingIconIfLabelFits(sortButton, GraphicIcon.SORT);
         sortButton.setPreview(Component.translatable(GUI + "sort.tooltip"));
         sortButton.setSelected(alphabetical);
         String type = switch (typeFilter) {
@@ -224,6 +240,7 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
                     : typeFilter == ENERGY_FILTER ? "filter.type.energy" : "filter.type.all";
         };
         typeButton.setMessage(Component.translatable(GUI + type));
+        setLeadingIconIfLabelFits(typeButton, GraphicIcon.FILTER);
         typeButton.setPreview(Component.translatable(GUI + (ChemicalTask.isAvailable()
                 ? "filter.type.chemical.tooltip" : "filter.type.energy.tooltip")));
         typeButton.setSelected(typeFilter != 0);

@@ -15,6 +15,8 @@ public final class GlassUiPolicy {
     }
 
     public static boolean isLibraryScreenClass(String name) {
-        return name != null && name.startsWith("dev.ftb.mods.ftblibrary.");
+        return name != null && (name.startsWith("dev.ftb.mods.ftblibrary.")
+                || name.equals("com.dishanhai.ftb_quest_nexus.client.FtbqSubmitterSelectionClient")
+                || name.equals("com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalPicker"));
     }
 }

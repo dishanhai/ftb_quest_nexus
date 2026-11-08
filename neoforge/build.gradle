@@ -21,6 +21,7 @@ def sharedJava = fileTree('../src/main/java') {
     include 'com/dishanhai/ftb_quest_nexus/client/FtbqChoiceRewardScreen.java'
     include 'com/dishanhai/ftb_quest_nexus/client/FtbqSubmitterSelectionClient.java'
     include 'com/dishanhai/ftb_quest_nexus/client/HeaderButtonLayout.java'
+    include 'com/dishanhai/ftb_quest_nexus/client/NexusIcons.java'
     include 'com/dishanhai/ftb_quest_nexus/client/glass/GlassUiPolicy.java'
 }
 sourceSets.test.java.srcDir '../src/test/java'
