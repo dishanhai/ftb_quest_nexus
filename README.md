@@ -59,7 +59,9 @@ $env:TMP = 'C:\jtmp'
 .\gradlew.bat test build reobfJar --no-daemon --console=plain
 ```
 
-本机依赖缓存完整时可加 `--offline`。更换机器后需要取得 ForgeGradle、映射及测试依赖缓存；wrapper 会使用 Gradle 8.8。
+根目录执行 `gradlew.bat build` 会依次构建 Forge 与 NeoForge。带 `reobfJar` 或 `extractNatives` 的命令只在 Forge 执行，包括用 `-x` 排除这些任务。NeoForge 的独立命令见 [NeoForge 构建说明](neoforge/README.md)。
+
+本机依赖缓存完整时可加 `--offline`。更换机器后需要取得 ForgeGradle、映射及测试依赖缓存。Forge wrapper 使用 Gradle 8.8。
 
 正式产物：`build/libs/ftb_quest_nexus-1.0.0.jar`。不要安装 `-sources.jar` 或开发用的 UI `-dev.jar`。
 

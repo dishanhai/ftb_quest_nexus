@@ -59,7 +59,9 @@ $env:TMP = 'C:\jtmp'
 .\gradlew.bat test build reobfJar --no-daemon --console=plain
 ```
 
-Add `--offline` if the local dependency cache is complete. On a new machine, populate the ForgeGradle, mappings, and test dependency caches. The wrapper uses Gradle 8.8.
+Run `gradlew.bat build` from the repository root to build Forge and then NeoForge. Commands that name `reobfJar` or `extractNatives` run on Forge only, including when `-x` excludes those tasks. See the [NeoForge build instructions](neoforge/README.md) for standalone commands.
+
+Add `--offline` if the local dependency cache is complete. On a new machine, populate the ForgeGradle, mappings, and test dependency caches. The Forge wrapper uses Gradle 8.8.
 
 Install the release artifact at `build/libs/ftb_quest_nexus-1.0.0.jar` and the release version of SH-Better-UI.
 
