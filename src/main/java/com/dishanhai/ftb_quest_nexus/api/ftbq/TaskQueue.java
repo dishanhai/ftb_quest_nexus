@@ -1,11 +1,14 @@
 package com.dishanhai.ftb_quest_nexus.api.ftbq;
 
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** Author: dishanhai. Ordered task IDs with the original unsigned-hex save format. */
+/** Author: dishanhai. Ordered task IDs with support for legacy unsigned-hex saves. */
 public final class TaskQueue {
     private final Set<Long> ids = new LinkedHashSet<>();
     private List<Long> snapshot = List.of();
@@ -38,6 +41,20 @@ public final class TaskQueue {
 
     public boolean isEmpty() {
         return ids.isEmpty();
+    }
+
+    public void save(CompoundTag tag, String key) {
+        tag.remove(key + "Text");
+        tag.putLongArray(key, ids.stream().mapToLong(Long::longValue).toArray());
+    }
+
+    public void load(CompoundTag tag, String key) {
+        if (!tag.contains(key, Tag.TAG_LONG_ARRAY)) {
+            load(tag.getString(key + "Text"));
+            return;
+        }
+        clear();
+        for (long id : tag.getLongArray(key)) add(id);
     }
 
     public String encode() {

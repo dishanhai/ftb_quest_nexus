@@ -1,5 +1,6 @@
 package com.dishanhai.ftb_quest_nexus.network;
 
+import com.dishanhai.ftb_quest_nexus.client.ChemicalRewardWarning;
 import com.dishanhai.ftb_quest_nexus.client.FtbqChoiceRewardScreen;
 import com.dishanhai.ftb_quest_nexus.client.FtbqSubmitterSelectionClient;
 import net.neoforged.api.distmarker.Dist;
@@ -16,7 +17,7 @@ public final class NexusNetwork {
     private NexusNetwork() {}
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("9");
+        var registrar = event.registrar("10");
         registrar.playToServer(FtbqSubmitterListRequestPacket.TYPE, FtbqSubmitterListRequestPacket.STREAM_CODEC,
                 FtbqSubmitterListRequestPacket::handle);
         registrar.playToServer(FtbqQueueTaskPacket.TYPE, FtbqQueueTaskPacket.STREAM_CODEC,
@@ -33,6 +34,10 @@ public final class NexusNetwork {
                 NexusNetwork::handleChoiceView);
         registrar.playToServer(FtbqChoiceRewardPackets.Selection.TYPE, FtbqChoiceRewardPackets.Selection.STREAM_CODEC,
                 FtbqChoiceRewardPackets.Selection::handle);
+        registrar.playToClient(ChemicalRewardPackets.Offer.TYPE, ChemicalRewardPackets.Offer.STREAM_CODEC,
+                NexusNetwork::handleChemicalOffer);
+        registrar.playToServer(ChemicalRewardPackets.Selection.TYPE, ChemicalRewardPackets.Selection.STREAM_CODEC,
+                ChemicalRewardPackets.Selection::handle);
     }
 
     private static void handleList(FtbqSubmitterListResponsePacket packet, IPayloadContext context) {
@@ -49,6 +54,10 @@ public final class NexusNetwork {
 
     private static void handleChoiceView(FtbqChoiceRewardPackets.View packet, IPayloadContext context) {
         if (FMLEnvironment.dist == Dist.CLIENT) ClientHandler.choiceView(packet);
+    }
+
+    private static void handleChemicalOffer(ChemicalRewardPackets.Offer packet, IPayloadContext context) {
+        if (FMLEnvironment.dist == Dist.CLIENT) ClientHandler.chemicalOffer(packet);
     }
 
     // This class is resolved only when a clientbound payload is received on a physical client.
@@ -77,6 +86,10 @@ public final class NexusNetwork {
 
         private static void sendChoice(UUID token, Map<Long, Integer> selections) {
             PacketDistributor.sendToServer(new FtbqChoiceRewardPackets.Selection(token, selections));
+        }
+
+        private static void chemicalOffer(ChemicalRewardPackets.Offer packet) {
+            ChemicalRewardWarning.open(packet);
         }
 
         private static void updateChecker(CheckerStatePacket packet) {

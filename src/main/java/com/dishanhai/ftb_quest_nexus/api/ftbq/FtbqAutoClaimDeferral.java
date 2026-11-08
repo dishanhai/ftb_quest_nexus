@@ -1,6 +1,7 @@
 package com.dishanhai.ftb_quest_nexus.api.ftbq;
 
 // Author: dishanhai. Reserve supported rewards for the submitting machine during progress events.
+import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
 import dev.ftb.mods.ftbquests.quest.TeamData;
 import dev.ftb.mods.ftbquests.quest.Quest;
 import dev.ftb.mods.ftbquests.quest.reward.Reward;
@@ -30,10 +31,12 @@ public final class FtbqAutoClaimDeferral {
 
     public static boolean shouldDefer(TeamData data, Reward reward) {
         Context context = CURRENT.get();
-        if (context == null || context.data != data || !context.rewards.test(reward)) return false;
-        // Per-player auto-claims can reset a repeatable quest too. Replay them only after AE claims.
-        context.quests.add(reward.getQuest());
-        return true;
+        if (context != null && context.data == data && context.rewards.test(reward)) {
+            // Per-player auto-claims can reset a repeatable quest too. Replay them only after AE claims.
+            context.quests.add(reward.getQuest());
+            return true;
+        }
+        return SubmitterBlockEntity.shouldDeferPendingAutoClaim(data, reward);
     }
 
     private record Context(TeamData data, Predicate<Reward> rewards, Set<Quest> quests) {}

@@ -46,10 +46,19 @@ public final class ChemicalPicker extends AbstractButtonListScreen {
             task.setChemicalId(id);
             callback.accept(task);
         }).openGui());
+        ChemicalReward.TYPE.setGuiProvider((panel, quest, callback) -> new ChemicalPicker(panel, id -> {
+            ChemicalReward reward = new ChemicalReward(0, quest);
+            reward.setChemical(id);
+            callback.accept(reward);
+        }).openGui());
     }
 
     static void addChemicalConfig(ConfigGroup group, ChemicalTask task) {
-        group.add("chemical", new ChemicalConfig(), task.chemicalId(), task::setChemicalId, task.chemicalId())
+        addChemicalConfig(group, task.chemicalId(), task::setChemicalId);
+    }
+
+    static void addChemicalConfig(ConfigGroup group, ResourceLocation chemical, Consumer<ResourceLocation> setter) {
+        group.add("chemical", new ChemicalConfig(), chemical, setter, chemical)
                 .setNameKey(ChemicalTask.LANG + ".chemical");
     }
 

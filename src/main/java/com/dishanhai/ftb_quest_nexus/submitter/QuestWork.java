@@ -35,25 +35,34 @@ final class QuestWork {
     private QuestWork() {}
 
     static Submission match(MEStorage storage, TeamData data, IActionSource source, ItemKeys keys,
-                            SubmitterQuestIndex index) {
-        for (var group : index.matchQuests()) {
+                            SubmitterQuestIndex index, int start) {
+        var quests = index.matchQuests();
+        int size = quests.size();
+        if (size == 0) return null;
+        int position = Math.floorMod(start, size);
+        for (int i = 0; i < size; i++, position = (position + 1) % size) {
+            var group = quests.get(position);
             if (!data.canStartTasks(group.quest()) || !data.areDependenciesComplete(group.quest())) continue;
-            Submission submission = firstSubmission(storage, data, source, keys, group.tasks());
-            if (submission != null) return submission;
+            Submission submission = firstSubmission(storage, data, source, keys, group.tasks(), 0);
+            if (submission != null) return new Submission(submission.task(), submission.amount(), position + 1);
         }
         return null;
     }
 
     static Submission firstSubmission(MEStorage storage, TeamData data, IActionSource source, ItemKeys keys,
-                                      List<Task> candidates) {
-        for (Task task : candidates) {
+                                      List<Task> candidates, int start) {
+        int size = candidates.size();
+        if (size == 0) return null;
+        int position = Math.floorMod(start, size);
+        for (int i = 0; i < size; i++, position = (position + 1) % size) {
+            Task task = candidates.get(position);
             long amount = extract(storage, data, task, source, keys);
-            if (amount > 0) return new Submission(task, amount);
+            if (amount > 0) return new Submission(task, amount, position + 1);
         }
         return null;
     }
 
-    record Submission(Task task, long amount) {}
+    record Submission(Task task, long amount, int nextIndex) {}
 
     static long extract(MEStorage storage, TeamData data, Task task, IActionSource source, ItemKeys keys) {
         if (!ConsumableTask.supported(task) || !ConsumableTask.canSubmit(data, task)) return 0;

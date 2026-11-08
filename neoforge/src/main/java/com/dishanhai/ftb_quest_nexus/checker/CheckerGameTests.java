@@ -23,9 +23,11 @@ import dev.ftb.mods.ftbquests.quest.ServerQuestFile;
 import dev.ftb.mods.ftbquests.quest.TeamData;
 import dev.ftb.mods.ftbquests.quest.task.FluidTask;
 import dev.ftb.mods.ftbquests.quest.task.ItemTask;
+import dev.ftb.mods.ftbquests.quest.task.TaskType;
 import dev.ftb.mods.ftbquests.quest.task.TaskTypes;
 import dev.ftb.mods.ftbquests.quest.task.neoforge.ForgeEnergyTask;
 import dev.ftb.mods.ftbteams.data.TeamManagerImpl;
+import io.netty.buffer.Unpooled;
 import me.ramidzkh.mekae2.ae2.MekanismKey;
 import mekanism.api.MekanismAPI;
 import mekanism.api.chemical.ChemicalStack;
@@ -36,9 +38,11 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
@@ -79,11 +83,49 @@ public final class CheckerGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void chemicalTaskDefinitionSurvivesMissingOptionalIntegration(GameTestHelper helper) {
+        Fixture f = fixture(helper);
+        var registries = helper.getLevel().registryAccess();
+        CompoundTag stored = new CompoundTag();
+        stored.putString("type", ChemicalTask.ID.toString());
+        stored.putString("chemical", "mekanism:ethene");
+        stored.putLong("amount", 4200L);
+        stored.putBoolean("consume", true);
+        var loaded = TaskType.createTask(f.file.newID(), f.quest, stored.getString("type"));
+        helper.assertTrue(loaded instanceof ChemicalTask, "The saved chemical task type could not be restored");
+        ChemicalTask chemical = (ChemicalTask) loaded;
+        chemical.readData(stored, registries);
+        CompoundTag saved = new CompoundTag();
+        chemical.writeData(saved, registries);
+        helper.assertTrue(TaskTypes.TYPES.get(ChemicalTask.ID) == chemical.getType()
+                        && stored.getString("type").equals(chemical.getType().getTypeForNBT())
+                        && stored.getString("chemical").equals(saved.getString("chemical"))
+                        && saved.getLong("amount") == 4200L && saved.getBoolean("consume"),
+                "Round-tripping the saved definition changed its type, target, amount or consumption");
+        helper.assertTrue(chemical.getAltTitle() != null && chemical.getAltIcon() != null,
+                "The chemical task had no display fallback");
+        var synced = new ChemicalTask(chemical.id, f.quest);
+        var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries);
+        try {
+            chemical.writeNetData(buffer);
+            synced.readNetData(buffer);
+            helper.assertTrue(synced.chemicalId().equals(chemical.chemicalId()) && synced.getMaxProgress() == 4200L
+                            && synced.consumesResources() && !buffer.isReadable(),
+                    "Synchronizing the task changed or left unread definition fields");
+        } finally {
+            buffer.release();
+        }
+        if (!ChemicalTask.isAvailable()) {
+            helper.assertTrue(chemical.storageKey() == null, "Missing chemical integration exposed an AE storage key");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void chemicalStockCompletesOnlyReadOnlyGoalsWithoutExtraction(GameTestHelper helper) {
         boolean modsPresent = ModList.get().isLoaded("mekanism") && ModList.get().isLoaded("appmek");
         helper.assertTrue(ChemicalTask.isAvailable() == modsPresent, "Unexpected chemical task availability");
         if (!ChemicalTask.isAvailable()) {
-            helper.assertTrue(!TaskTypes.TYPES.containsKey(ChemicalTask.ID), "Optional chemical task was registered without its dependencies");
             helper.succeed();
             return;
         }
@@ -126,6 +168,83 @@ public final class CheckerGameTests {
                         && row.available() == 1000 && row.completed()),
                 "Checker catalog lost the chemical type or its mB count");
         helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void manualChemicalSubmissionConsumesOnlyTheExactRemainder(GameTestHelper helper) {
+        if (!ModList.get().isLoaded("mekanism")) {
+            helper.succeed();
+            return;
+        }
+        Fixture f = fixture(helper);
+        ServerPlayer player = player(helper);
+        var inventory = player.getInventory();
+        var ethene = ResourceLocation.fromNamespaceAndPath("mekanism", "ethene");
+        var hydrogen = ResourceLocation.fromNamespaceAndPath("mekanism", "hydrogen");
+        ChemicalTask task = manualChemicalTask(helper, f, ethene, true);
+        task.setAmount(2500);
+        ItemStack tank = ChemicalTankFixtures.tank(ethene, 1500, false);
+        inventory.setItem(0, tank);
+        inventory.setItem(1, ChemicalTankFixtures.tank(hydrogen, 5000, false));
+        inventory.setItem(2, ChemicalTankFixtures.tank(ethene, 5000, true));
+
+        f.data.setLocked(true);
+        task.submitTask(f.data, player);
+        f.data.setLocked(false);
+        task.submitTask(f.data, player, tank);
+        helper.assertTrue(f.data.getProgress(task) == 0 && ChemicalTankFixtures.amount(inventory.getItem(0)) == 1500,
+                "Locked or passive submissions changed progress or stock");
+
+        task.submitTask(f.data, player);
+        helper.assertTrue(f.data.getProgress(task) == 1500 && ChemicalTankFixtures.amount(inventory.getItem(0)) == 0,
+                "The consuming task did not record only the amount removed from a finite tank");
+        helper.assertTrue(inventory.getItem(0).is(tank.getItem()) && ChemicalTankFixtures.amount(inventory.getItem(1)) == 5000,
+                "Submission removed the tank item or changed the wrong chemical");
+
+        inventory.setItem(Inventory.SLOT_OFFHAND, ChemicalTankFixtures.tank(ethene, 1800, false));
+        task.submitTask(f.data, player);
+        helper.assertTrue(f.data.isCompleted(task)
+                        && ChemicalTankFixtures.amount(inventory.getItem(Inventory.SLOT_OFFHAND)) == 800,
+                "Submission did not stop at the remaining 1000 mB");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void manualChemicalCheckCompletesOnlyWithEnoughStockAndDoesNotDrain(GameTestHelper helper) {
+        if (!ModList.get().isLoaded("mekanism")) {
+            helper.succeed();
+            return;
+        }
+        Fixture f = fixture(helper);
+        ServerPlayer player = player(helper);
+        var inventory = player.getInventory();
+        var ethene = ResourceLocation.fromNamespaceAndPath("mekanism", "ethene");
+        var hydrogen = ResourceLocation.fromNamespaceAndPath("mekanism", "hydrogen");
+        ChemicalTask task = manualChemicalTask(helper, f, ethene, false);
+        inventory.setItem(0, ChemicalTankFixtures.tank(ethene, 75, false));
+        inventory.setItem(1, ChemicalTankFixtures.tank(hydrogen, 500, false));
+        task.submitTask(f.data, player);
+        task.submitTask(f.data, player);
+        helper.assertTrue(f.data.getProgress(task) == 0, "Read-only clicks accumulated partial or unrelated stock");
+
+        inventory.setItem(2, ChemicalTankFixtures.tank(ethene, 25, false));
+        task.submitTask(f.data, player);
+        helper.assertTrue(f.data.isCompleted(task) && ChemicalTankFixtures.amount(inventory.getItem(0)) == 75
+                        && ChemicalTankFixtures.amount(inventory.getItem(2)) == 25,
+                "Read-only submission failed to combine tanks or consumed their stock");
+        helper.succeed();
+    }
+
+    private static ChemicalTask manualChemicalTask(GameTestHelper helper, Fixture f, ResourceLocation id, boolean consume) {
+        CompoundTag config = new CompoundTag();
+        config.putString("chemical", id.toString());
+        config.putLong("amount", 100);
+        config.putBoolean("consume", consume);
+        ChemicalTask task = new ChemicalTask(f.file.newID(), f.quest);
+        task.readData(config, helper.getLevel().registryAccess());
+        f.quest.addTask(task);
+        f.file.refreshIDMap();
+        return task;
     }
 
     @GameTest(template = "empty")
@@ -778,6 +897,23 @@ public final class CheckerGameTests {
     private static final class ChemicalKeys {
         static AEKey create(ResourceLocation id, long amount) {
             return MekanismKey.of(new ChemicalStack(MekanismAPI.CHEMICAL_REGISTRY.get(id), amount));
+        }
+    }
+
+    private static final class ChemicalTankFixtures {
+        static ItemStack tank(ResourceLocation id, long amount, boolean creative) {
+            var block = creative ? mekanism.common.registries.MekanismBlocks.CREATIVE_CHEMICAL_TANK
+                    : mekanism.common.registries.MekanismBlocks.BASIC_CHEMICAL_TANK;
+            var stack = new ItemStack(block.asItem());
+            var handler = stack.getCapability(mekanism.common.capabilities.Capabilities.CHEMICAL.item());
+            var chemical = MekanismAPI.CHEMICAL_REGISTRY.getHolder(id).orElseThrow();
+            handler.setChemicalInTank(0, new ChemicalStack(chemical, amount));
+            return stack;
+        }
+
+        static long amount(ItemStack stack) {
+            return stack.getCapability(mekanism.common.capabilities.Capabilities.CHEMICAL.item())
+                    .getChemicalInTank(0).getAmount();
         }
     }
 

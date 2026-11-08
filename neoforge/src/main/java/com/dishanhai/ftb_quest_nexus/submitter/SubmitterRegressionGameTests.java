@@ -12,6 +12,7 @@ import appeng.api.storage.IStorageProvider;
 import com.dishanhai.ftb_quest_nexus.NexusContent;
 import com.dishanhai.ftb_quest_nexus.QuestNexus;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.FtbqAutoClaimDeferral;
+import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalReward;
 import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalTask;
 import com.mojang.authlib.GameProfile;
 import dev.ftb.mods.ftblibrary.config.Tristate;
@@ -23,6 +24,7 @@ import dev.ftb.mods.ftbquests.quest.reward.AllTableReward;
 import dev.ftb.mods.ftbquests.quest.reward.ChoiceReward;
 import dev.ftb.mods.ftbquests.quest.reward.ItemReward;
 import dev.ftb.mods.ftbquests.quest.reward.Reward;
+import dev.ftb.mods.ftbquests.quest.reward.RewardTypes;
 import dev.ftb.mods.ftbquests.quest.reward.XPLevelsReward;
 import dev.ftb.mods.ftbquests.quest.reward.XPReward;
 import dev.ftb.mods.ftbquests.quest.task.ItemTask;
@@ -213,8 +215,7 @@ public final class SubmitterRegressionGameTests {
             UUID id = UUID.fromString(f.entity.getSubmitterIdText());
             helper.assertTrue(SubmitterBlockEntity.queueTask(f.owner, id, f.task.id), "Registration rejected");
             helper.assertTrue(f.entity.getQueueSize() == 2, "Registration omitted a sibling item target");
-            String queued = userData(f).getString("queuedTaskIdsText");
-            helper.assertTrue(queued.contains(Long.toUnsignedString(second.id, 16)), "Second target missing");
+            helper.assertTrue(f.entity.getQueuedTaskIds().contains(second.id), "Second target missing");
             SubmitterBlockEntity.queueTask(f.owner, id, f.task.id);
             helper.assertTrue(f.entity.getQueueSize() == 2, "Repeated registration duplicated targets");
             ServerPlayer outsider = player(helper);
@@ -385,6 +386,103 @@ public final class SubmitterRegressionGameTests {
             runWork(f);
             helper.assertTrue(f.owner.totalExperience == before + 12, "XP auto-claim was suppressed");
             helper.assertTrue(f.storage.items.get(AEItemKey.of(Items.GOLD_INGOT)) == 8, "Item reward missed AE");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void fullAeDefersAllItemRewardsAcrossReloadAndQueueClear(GameTestHelper helper) {
+        withSubmitter(helper, f -> {
+            ItemReward first = automaticReward(f, false);
+            ItemReward second = new ItemReward(f.file.newID(), f.quest, new ItemStack(Items.EMERALD), 8);
+            configureAutomaticReward(f, second, false);
+            AEItemKey gold = AEItemKey.of(Items.GOLD_INGOT);
+            AEItemKey emerald = AEItemKey.of(Items.EMERALD);
+            f.storage.capacity = 54;
+            runWork(f);
+            helper.assertTrue(f.data.isRewardClaimed(f.owner.getUUID(), first)
+                            && !f.data.isRewardClaimed(f.owner.getUUID(), second)
+                            && !f.data.isRewardClaimed(f.teammate.getUUID(), second),
+                    "Native replay claimed a second item reward while the AE buffer was full");
+
+            f.entity.loadUserData(userData(f), f.owner.registryAccess());
+            helper.assertTrue(f.entity.applyAction(f.owner, 1), "Fixture could not clear the manual queue");
+            f.data.checkAutoCompletion(f.quest);
+            helper.assertTrue(!f.data.isRewardClaimed(f.owner.getUUID(), second)
+                            && !f.data.isRewardClaimed(f.teammate.getUUID(), second),
+                    "Native completion bypassed a loaded pending AE reservation");
+            f.storage.capacity = 70;
+            runWork(f);
+            helper.assertTrue(f.storage.items.get(gold) == 8 && f.storage.items.get(emerald) == 8
+                            && f.data.isRewardClaimed(f.owner.getUUID(), second),
+                    "Clearing the queue after reload lost a previously reserved AE reward");
+            helper.assertTrue(f.data.isRewardClaimed(f.teammate.getUUID(), second),
+                    "Native personal auto-claim did not resume for the teammate");
+            runWork(f);
+            helper.assertTrue(f.storage.items.get(gold) == 8 && f.storage.items.get(emerald) == 8,
+                    "Reward replay inserted a duplicate");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void manualAndMatchAdvancePastZeroCooldownRepeatables(GameTestHelper helper) {
+        withSubmitter(helper, f -> {
+            CompoundTag config = new CompoundTag();
+            f.quest.writeData(config, helper.getLevel().registryAccess());
+            config.putBoolean("can_repeat", true);
+            config.putInt("repeat_cooldown", 0);
+            f.quest.readData(config, helper.getLevel().registryAccess());
+            automaticReward(f, false);
+            Quest later = new Quest(f.file.newID(), f.quest.getChapter());
+            f.quest.getChapter().addQuest(later);
+            ItemTask laterTask = itemTask(f.file, later, Items.DIAMOND);
+            f.file.refreshIDMap();
+            f.storage.items.add(AEItemKey.of(Items.DIAMOND), 20);
+            UUID id = UUID.fromString(f.entity.getSubmitterIdText());
+            helper.assertTrue(SubmitterBlockEntity.queueTask(f.owner, id, laterTask.id), "Second task was not queued");
+
+            runWork(f);
+            helper.assertTrue(f.data.getProgress(f.task) == 0 && f.data.getProgress(laterTask) == 0,
+                    "Fixture did not reset its first quest or ran more than one submission");
+            runWork(f);
+            helper.assertTrue(f.data.isCompleted(laterTask), "Repeatable quest starved the manual queue");
+
+            f.data.setProgress(laterTask, 0);
+            helper.assertTrue(f.entity.applyAction(f.owner, 6), "Fixture could not enable matching");
+            runWork(f);
+            helper.assertTrue(f.data.getProgress(laterTask) == 0, "Match mode ran more than one submission");
+            runWork(f);
+            helper.assertTrue(f.data.isCompleted(laterTask), "Repeatable quest starved matching");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void largeQueuesSurviveBinaryNbtRoundTrip(GameTestHelper helper) {
+        withSubmitter(helper, f -> {
+            List<Long> ids = java.util.stream.LongStream.range(0, 4000)
+                    .mapToObj(i -> 0x123456789ABC0000L + i).toList();
+            String legacy = ids.stream().map(id -> Long.toUnsignedString(id, 16))
+                    .collect(java.util.stream.Collectors.joining(","));
+            CompoundTag seed = userData(f);
+            seed.remove("queuedTaskIds");
+            seed.remove("matchedTaskIds");
+            seed.putString("queuedTaskIdsText", legacy);
+            seed.putString("matchedTaskIdsText", legacy);
+            f.entity.loadUserData(seed, f.owner.registryAccess());
+            helper.assertTrue(f.entity.getQueuedTaskIds().equals(ids), "Legacy task IDs failed to load in order");
+            try {
+                var bytes = new java.io.ByteArrayOutputStream();
+                try (var output = new java.io.DataOutputStream(bytes)) {
+                    net.minecraft.nbt.NbtIo.write(userData(f), output);
+                }
+                var input = new java.io.DataInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray()));
+                CompoundTag restored = net.minecraft.nbt.NbtIo.read(input);
+                f.entity.loadUserData(restored, f.owner.registryAccess());
+                helper.assertTrue(f.entity.getQueuedTaskIds().equals(ids), "Saved manual queue lost ordered task IDs");
+                helper.assertTrue(f.entity.applyAction(f.owner, 6) && f.entity.getQueuedTaskIds().equals(ids),
+                        "Saved match history lost ordered task IDs");
+            } catch (java.io.IOException e) {
+                throw new AssertionError("Large task queues could not be saved", e);
+            }
         });
     }
 
@@ -609,6 +707,7 @@ public final class SubmitterRegressionGameTests {
                     && f.entity.writeQueueState(0).getList("rows", net.minecraft.nbt.Tag.TAG_COMPOUND).isEmpty(),
                     "Clearing queue did not reset page bounds");
             CompoundTag oldSave = userData(f);
+            oldSave.remove("queuedTaskIds");
             oldSave.putString("queuedTaskIdsText", "7ffffffffffffffe");
             f.entity.loadUserData(oldSave, f.entity.getLevel().registryAccess());
             var invalid = f.entity.writeQueueState(0).getList("rows", net.minecraft.nbt.Tag.TAG_COMPOUND);
@@ -813,9 +912,52 @@ public final class SubmitterRegressionGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 100)
+    public static void directChemicalRewardSyncsAndSettlesOnceThroughTheSubmitter(GameTestHelper helper) {
+        withSubmitter(helper, f -> {
+            ResourceLocation hydrogen = ResourceLocation.fromNamespaceAndPath("mekanism", "hydrogen");
+            var registries = helper.getLevel().registryAccess();
+            long rewardId = f.file.newID();
+            var reward = new ChemicalReward(rewardId, f.quest);
+            CompoundTag configuration = new CompoundTag();
+            reward.writeData(configuration, registries);
+            configuration.putString("chemical", hydrogen.toString());
+            configuration.putLong("amount", 2300);
+            reward.readData(configuration, registries);
+            helper.assertTrue(RewardTypes.TYPES.get(ChemicalReward.TYPE.getTypeId()) == reward.getType(),
+                    "Chemical reward is missing from the FTB reward registry");
+
+            var synced = new ChemicalReward(rewardId, f.quest);
+            var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries);
+            try {
+                reward.writeNetData(buffer);
+                synced.readNetData(buffer);
+                CompoundTag saved = new CompoundTag();
+                synced.writeData(saved, registries);
+                helper.assertTrue(saved.getString("chemical").equals(hydrogen.toString()) && saved.getLong("amount") == 2300,
+                        "Chemical reward lost its ID or mB on sync");
+            } finally {
+                buffer.release();
+            }
+            if (!ChemicalTask.isAvailable()) return;
+
+            f.quest.addReward(synced);
+            f.file.refreshIDMap();
+            AEKey chemical = ChemicalKeys.create(hydrogen, 1);
+            withOnlinePlayers(List.of(f.owner), () -> {
+                runWork(f);
+                helper.assertTrue(f.data.isRewardClaimed(f.owner.getUUID(), synced) && f.storage.items.get(chemical) == 2300,
+                        "The submitter did not deliver the exact chemical reward to ME storage");
+                runWork(f);
+                helper.assertTrue(f.storage.items.get(chemical) == 2300, "The chemical reward was delivered twice");
+            });
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
     public static void consumingChemicalCreditsOnlyExactExtractedMillibuckets(GameTestHelper helper) {
         if (!ChemicalTask.isAvailable()) {
-            helper.assertTrue(!TaskTypes.TYPES.containsKey(ChemicalTask.ID), "Optional chemical task was registered without its dependencies");
+            helper.assertTrue(TaskTypes.TYPES.containsKey(ChemicalTask.ID),
+                    "The saved chemical task type disappeared without its dependencies");
             helper.succeed();
             return;
         }

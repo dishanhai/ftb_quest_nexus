@@ -115,7 +115,7 @@ public final class SubmitterQuestIndex {
     private RewardQuest rewardQuest(Quest quest) {
         return rewardQuests.computeIfAbsent(quest.id, ignored -> new RewardQuest(quest,
                 quest.getRewards().stream().filter(reward -> supportsItemRewardType(reward)
-                        || isExperienceReward(reward)).toList(),
+                        || isExperienceReward(reward) || reward instanceof NetworkReward).toList(),
                 quest.getRewards().stream().filter(ChoiceReward.class::isInstance).map(ChoiceReward.class::cast).toList()));
     }
 
@@ -126,4 +126,5 @@ public final class SubmitterQuestIndex {
 
     public record MatchQuest(Quest quest, List<Task> tasks) {}
     public record RewardQuest(Quest quest, List<Reward> rewards, List<ChoiceReward> choices) {}
+    public interface NetworkReward {}
 }

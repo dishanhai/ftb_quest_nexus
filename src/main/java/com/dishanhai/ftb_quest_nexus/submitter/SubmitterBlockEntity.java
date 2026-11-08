@@ -47,6 +47,7 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
     private static final Map<UUID, SubmitterBlockEntity> LOADED = new HashMap<>();
     private final TaskQueue queue = new TaskQueue();
     private final TaskQueue matchedTasks = new TaskQueue();
+    private final Map<Long, DeferredAutoClaim> deferredAutoClaims = new LinkedHashMap<>();
     private boolean matching;
     private final FtbqRewardBuffer<AEItemKey> pendingRewards = new FtbqRewardBuffer<>();
     private final IManagedGridNode mainNode;
@@ -66,6 +67,8 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
     private List<Long> scopedTaskIds = List.of();
     private Set<Long> scopedRewardQuests = Set.of();
     private long scopeRevision;
+    private int nextQueuedIndex;
+    private int nextMatchingIndex;
 
     public SubmitterBlockEntity(BlockPos pos, BlockState state) {
         super(NexusContent.BLOCK_ENTITY.get(), pos, state);
@@ -145,6 +148,7 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
             case 1 -> {
                 if (matching) return false;
                 queue.clear();
+                nextQueuedIndex = 0;
                 status("cleared");
             }
             case 2 -> { suppressCompletionToast = !suppressCompletionToast; status(suppressCompletionToast ? "toast_hidden" : "toast_shown"); }
@@ -181,6 +185,9 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
         if (teamId == null) {
             queue.clear();
             matchedTasks.clear();
+            deferredAutoClaims.clear();
+            nextQueuedIndex = 0;
+            nextMatchingIndex = 0;
             matching = false;
         }
         teamIdText = data.getTeamId().toString();
@@ -222,7 +229,7 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
         if (!teamId.equals(currentTeam)) { status("player_left"); return; }
         boolean allRewards = !matching && !claimOnlyQueuedRewards;
         List<Long> taskIds = displayedQueue().list();
-        if (!matching && !allRewards && taskIds.isEmpty()) {
+        if (!matching && !allRewards && taskIds.isEmpty() && deferredAutoClaims.isEmpty()) {
             scopedTaskIds = List.of();
             scopedRewardQuests = Set.of();
             queueSize = 0;
@@ -231,20 +238,29 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
             return;
         }
         SubmitterQuestIndex index = SubmitterQuestIndex.forFile(file);
+        if (!deferredAutoClaims.isEmpty()) {
+            resumeDeferredAutoClaims(index, storage, data, playerId, source);
+            if (!pendingRewards.isEmpty()) { status("pending_rewards"); return; }
+            index = SubmitterQuestIndex.forFile(file);
+        }
         Set<Long> rewardQuests = allRewards ? Set.of() : queuedRewardQuests(file, taskIds, index.revision());
         List<Task> candidates = matching ? List.of() : queuedCandidates(file, taskIds);
         QuestWork.ItemKeys itemKeys = new QuestWork.ItemKeys();
-        QuestWork.Submission submission = matching ? QuestWork.match(storage, data, source, itemKeys, index)
-                : QuestWork.firstSubmission(storage, data, source, itemKeys, candidates);
-        List<Quest> deferredAutoClaims;
+        QuestWork.Submission submission = matching ? QuestWork.match(storage, data, source, itemKeys, index, nextMatchingIndex)
+                : QuestWork.firstSubmission(storage, data, source, itemKeys, candidates, nextQueuedIndex);
         long newlyMatchedQuestId = 0;
         if (submission != null) {
             Task task = submission.task();
             long submitted = submission.amount();
             long matchedQuestId = matching ? task.getQuest().id : 0;
-            if (matching) matchedTasks.add(task.id);
+            if (matching) {
+                matchedTasks.add(task.id);
+                nextMatchingIndex = submission.nextIndex();
+            } else {
+                nextQueuedIndex = submission.nextIndex();
+            }
             newlyMatchedQuestId = matchedQuestId;
-            deferredAutoClaims = FtbqAutoClaimDeferral.run(data, reward -> {
+            List<Quest> deferred = FtbqAutoClaimDeferral.run(data, reward -> {
                 Quest quest = reward.getQuest();
                 return quest != null && (allRewards || quest.id == matchedQuestId || rewardQuests.contains(quest.id))
                         && (reward instanceof ChoiceReward || SubmitterQuestIndex.isExperienceReward(reward)
@@ -253,6 +269,11 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
                 if (suppressCompletionToast) FtbqSubmitterToastSuppressor.runSuppressed(() -> data.addProgress(task, submitted));
                 else data.addProgress(task, submitted);
             });
+            for (Quest quest : deferred) {
+                boolean claimItems = scopeIncludesItems(quest);
+                deferredAutoClaims.compute(quest.id, (ignored, prior) ->
+                        new DeferredAutoClaim(claimItems || prior != null && prior.claimItems(), true));
+            }
             if (task instanceof FluidTask) lastSubmittedFluid = submitted;
             else lastSubmitted = submitted;
             setChanged();
@@ -260,21 +281,11 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
             SubmitterQuestIndex updated = SubmitterQuestIndex.forFile(file);
             if (matching && index != updated) updated.matchQuests();
             index = updated;
-        } else {
-            deferredAutoClaims = List.of();
         }
         Set<Long> questsToClaim = allRewards ? index.rewardQuestIds() : rewardQuests;
         claimRewards(index, questsToClaim, newlyMatchedQuestId, storage, data, playerId, source);
-        if (!deferredAutoClaims.isEmpty()) {
-            // Keep experience claimable if the bound player could not receive it this tick.
-            FtbqAutoClaimDeferral.run(data, reward -> isExperiencePending(data, playerId, reward)
-                    || reward instanceof ChoiceReward && deferredAutoClaims.contains(reward.getQuest()), () -> {
-                for (Quest quest : deferredAutoClaims) {
-                    if (quest.canBeRepeated() && quest.getRewards().stream()
-                            .anyMatch(reward -> isExperiencePending(data, playerId, reward))) continue;
-                    data.checkAutoCompletion(quest);
-                }
-            });
+        if (submission != null && pendingRewards.isEmpty()) {
+            resumeDeferredAutoClaims(index, storage, data, playerId, source);
         }
         ServerPlayer boundPlayer = level.getServer().getPlayerList().getPlayer(playerId);
         if (boundPlayer != null) {
@@ -358,29 +369,83 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
                               MEStorage storage, TeamData data, UUID playerId, IActionSource source) {
         if (!(level instanceof ServerLevel serverLevel)) return;
         for (long questId : quests) {
-            claimQuestRewards(index.rewardQuest(questId), storage, data, playerId, source, serverLevel);
+            var quest = index.rewardQuest(questId);
+            if (quest != null) claimQuestRewards(quest, storage, data, playerId, source, serverLevel,
+                    scopeIncludesItems(quest.quest()));
             if (!pendingRewards.isEmpty()) return;
         }
         if (newlyMatchedQuestId != 0 && !quests.contains(newlyMatchedQuestId)) {
-            claimQuestRewards(index.rewardQuest(newlyMatchedQuestId), storage, data, playerId, source, serverLevel);
+            var quest = index.rewardQuest(newlyMatchedQuestId);
+            if (quest != null) claimQuestRewards(quest, storage, data, playerId, source, serverLevel,
+                    scopeIncludesItems(quest.quest()));
         }
     }
 
     private void claimQuestRewards(SubmitterQuestIndex.RewardQuest quest, MEStorage storage, TeamData data,
-                                   UUID playerId, IActionSource source, ServerLevel serverLevel) {
-        if (quest == null || quest.rewards().isEmpty() || !data.isCompleted(quest.quest())) return;
-        boolean claimItems = scopeIncludesItems(quest.quest());
+                                   UUID playerId, IActionSource source, ServerLevel serverLevel, boolean claimItems) {
+        if (quest.rewards().isEmpty() || !data.isCompleted(quest.quest())) return;
         for (Reward reward : quest.rewards()) {
             if (SubmitterQuestIndex.isExperienceReward(reward)) {
                 QuestWork.claimExperience(data, playerId, reward);
                 continue;
             }
-            if (!claimItems || data.getClaimType(playerId, reward) != RewardClaimType.CAN_CLAIM) continue;
+            if (!claimItems || data.isRewardBlocked(reward)
+                    || data.getClaimType(playerId, reward) != RewardClaimType.CAN_CLAIM) continue;
             lastClaimedRewards += QuestWork.claim(storage, data, playerId, reward, serverLevel,
                     this, pendingRewards, source, this::setChanged);
             if (!pendingRewards.isEmpty()) return;
         }
     }
+
+    private void resumeDeferredAutoClaims(SubmitterQuestIndex index, MEStorage storage, TeamData data,
+                                          UUID playerId, IActionSource source) {
+        if (!(level instanceof ServerLevel serverLevel)) return;
+        for (var entries = deferredAutoClaims.entrySet().iterator(); entries.hasNext();) {
+            var entry = entries.next();
+            var quest = index.rewardQuest(entry.getKey());
+            if (quest == null || !data.isCompleted(quest.quest())) {
+                entries.remove();
+                setChanged();
+                continue;
+            }
+            DeferredAutoClaim deferred = entry.getValue();
+            claimQuestRewards(quest, storage, data, playerId, source, serverLevel, deferred.claimItems());
+            if (!pendingRewards.isEmpty()) return;
+            boolean pendingItems = deferred.claimItems() && quest.rewards().stream().anyMatch(reward ->
+                    QuestWork.canClaimItem(reward) && data.getClaimType(playerId, reward) == RewardClaimType.CAN_CLAIM);
+            boolean pendingExperience = quest.rewards().stream().anyMatch(reward -> isExperiencePending(data, playerId, reward));
+            if (pendingItems || quest.quest().canBeRepeated() && pendingExperience) continue;
+
+            if (!pendingExperience) {
+                entries.remove();
+                setChanged();
+            } else if (deferred.replayNative()) {
+                // A non-repeatable quest can resume other rewards while its owner's XP waits.
+                entry.setValue(new DeferredAutoClaim(false, false));
+                setChanged();
+            }
+            if (deferred.replayNative()) {
+                FtbqAutoClaimDeferral.run(data, reward -> reward.getQuest() == quest.quest()
+                        && (reward instanceof ChoiceReward || isExperiencePending(data, playerId, reward)),
+                        () -> data.checkAutoCompletion(quest.quest()));
+            }
+        }
+    }
+
+    public static boolean shouldDeferPendingAutoClaim(TeamData data, Reward reward) {
+        if (data.getFile() != ServerQuestFile.INSTANCE || reward.getQuest() == null) return false;
+        for (SubmitterBlockEntity entity : LOADED.values()) {
+            DeferredAutoClaim deferred = entity.deferredAutoClaims.get(reward.getQuest().id);
+            if (deferred == null || !data.getTeamId().equals(uuid(entity.teamIdText))) continue;
+            if (deferred.replayNative() && (reward instanceof ChoiceReward
+                    || deferred.claimItems() && QuestWork.canClaimItem(reward))) return true;
+            UUID playerId = uuid(entity.rewardPlayerIdText);
+            if (playerId != null && isExperiencePending(data, playerId, reward)) return true;
+        }
+        return false;
+    }
+
+    private record DeferredAutoClaim(boolean claimItems, boolean replayNative) {}
 
     private boolean scopeIncludesItems(Quest quest) {
         return matching || !claimOnlyQueuedRewards || quest.getTasks().stream().anyMatch(ConsumableTask::supported);
@@ -443,8 +508,17 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
         tag.putString("teamIdText", teamIdText);
         tag.putString("rewardPlayerIdText", rewardPlayerIdText);
         tag.putString("submitterIdText", submitterIdText);
-        tag.putString("queuedTaskIdsText", queue.encode());
-        tag.putString("matchedTaskIdsText", matchedTasks.encode());
+        queue.save(tag, "queuedTaskIds");
+        matchedTasks.save(tag, "matchedTaskIds");
+        ListTag deferred = new ListTag();
+        deferredAutoClaims.forEach((id, claim) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putLong("questId", id);
+            entry.putBoolean("claimItems", claim.claimItems());
+            entry.putBoolean("replayNative", claim.replayNative());
+            deferred.add(entry);
+        });
+        tag.put("deferredAutoClaims", deferred);
         tag.putBoolean("matching", matching);
         tag.putBoolean("suppressCompletionToast", suppressCompletionToast);
         tag.putBoolean("claimOnlyQueuedRewards", claimOnlyQueuedRewards);
@@ -462,8 +536,18 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
         teamIdText = tag.getString("teamIdText");
         rewardPlayerIdText = tag.getString("rewardPlayerIdText");
         if (uuid(tag.getString("submitterIdText")) != null) submitterIdText = tag.getString("submitterIdText");
-        queue.load(tag.getString("queuedTaskIdsText"));
-        matchedTasks.load(tag.getString("matchedTaskIdsText"));
+        queue.load(tag, "queuedTaskIds");
+        matchedTasks.load(tag, "matchedTaskIds");
+        nextQueuedIndex = 0;
+        nextMatchingIndex = 0;
+        deferredAutoClaims.clear();
+        ListTag deferred = tag.getList("deferredAutoClaims", Tag.TAG_COMPOUND);
+        for (int i = 0; i < deferred.size(); i++) {
+            CompoundTag entry = deferred.getCompound(i);
+            long id = entry.getLong("questId");
+            if (id != 0) deferredAutoClaims.put(id,
+                    new DeferredAutoClaim(entry.getBoolean("claimItems"), entry.getBoolean("replayNative")));
+        }
         matching = tag.getBoolean("matching");
         queueSize = displayedQueue().size();
         suppressCompletionToast = tag.getBoolean("suppressCompletionToast");

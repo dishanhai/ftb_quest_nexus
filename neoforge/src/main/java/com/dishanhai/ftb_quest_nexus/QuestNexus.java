@@ -4,6 +4,8 @@ import appeng.api.AECapabilities;
 import com.dishanhai.ftb_quest_nexus.api.BindingTransfer;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.ChoiceRewardNotices;
 import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalTask;
+import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalReward;
+import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalRewards;
 import com.dishanhai.ftb_quest_nexus.network.FtbqChoiceRewardPackets;
 import com.dishanhai.ftb_quest_nexus.network.NexusNetwork;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
@@ -16,10 +18,12 @@ import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.server.level.ServerPlayer;
 
 /** Author: dishanhai. Independent FTB Quests extensions for NeoForge. */
 @Mod(QuestNexus.MOD_ID)
@@ -28,6 +32,7 @@ public final class QuestNexus {
 
     public QuestNexus(IEventBus bus, ModContainer container) {
         ChemicalTask.init();
+        ChemicalReward.init();
         container.registerConfig(ModConfig.Type.CLIENT, ClientUiConfig.SPEC);
         NexusContent.BLOCKS.register(bus);
         NexusContent.ITEMS.register(bus);
@@ -38,8 +43,12 @@ public final class QuestNexus {
         bus.addListener(QuestNexus::buildCreativeTab);
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> {
             BindingTransfer.register(event.getDispatcher());
+            ChemicalRewards.register(event.getDispatcher());
             ChoiceRewardNotices.register(event.getDispatcher(), SubmitterBlockEntity::availableChoiceRewards,
                     FtbqChoiceRewardPackets::sendOpen);
+        });
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent event) -> {
+            if (event.getEntity() instanceof ServerPlayer player) ChemicalRewards.remind(player);
         });
         NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> {
             BindingTransfer.clear(event.getServer());
@@ -50,6 +59,8 @@ public final class QuestNexus {
     private static void registerCapabilities(RegisterCapabilitiesEvent event) {
         event.registerBlockEntity(AECapabilities.IN_WORLD_GRID_NODE_HOST, NexusContent.BLOCK_ENTITY.get(),
                 (submitter, context) -> submitter);
+        event.registerBlockEntity(AECapabilities.IN_WORLD_GRID_NODE_HOST, NexusContent.CHECKER_BLOCK_ENTITY.get(),
+                (checker, context) -> checker);
         event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, NexusContent.CHECKER_BLOCK_ENTITY.get(),
                 (checker, side) -> checker.energyInput());
     }

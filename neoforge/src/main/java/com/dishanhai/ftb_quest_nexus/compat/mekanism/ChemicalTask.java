@@ -16,17 +16,20 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
 
 /** Author: dishanhai. FTBQ task for a single registered Mekanism chemical, measured in mB. */
 public final class ChemicalTask extends Task implements ConsumableTask.ExactStorageTarget {
     public static final String LANG = "task.ftb_quest_nexus.mek_chemical";
     public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath(QuestNexus.MOD_ID, "mek_chemical");
-    public static final TaskType TYPE = ModList.get().isLoaded("mekanism") && ModList.get().isLoaded("appmek")
-            ? TaskTypes.register(ID, ChemicalTask::new, () -> Icon.getIcon(
-                    ResourceLocation.fromNamespaceAndPath(QuestNexus.MOD_ID, "textures/gui/mek_chemical.png")))
-                    .setDisplayName(Component.translatable(LANG))
-            : null;
+    // FTB Quests resolves saved and synchronized tasks by this type even without chemical storage.
+    public static final TaskType TYPE = TaskTypes.register(ID, ChemicalTask::new, () -> Icon.getIcon(
+            ResourceLocation.fromNamespaceAndPath(QuestNexus.MOD_ID, "textures/gui/mek_chemical.png")))
+            .setDisplayName(Component.translatable(LANG));
+    private static final boolean MEKANISM_AVAILABLE = ModList.get().isLoaded("mekanism");
+    private static final boolean STORAGE_AVAILABLE = MEKANISM_AVAILABLE && ModList.get().isLoaded("appmek");
     private static final ResourceLocation EMPTY = ResourceLocation.fromNamespaceAndPath("mekanism", "empty");
     private static final long DEFAULT_AMOUNT = 1000;
 
@@ -37,7 +40,11 @@ public final class ChemicalTask extends Task implements ConsumableTask.ExactStor
     public static void init() {}
 
     public static boolean isAvailable() {
-        return TYPE != null;
+        return STORAGE_AVAILABLE;
+    }
+
+    public static boolean isMekanismAvailable() {
+        return MEKANISM_AVAILABLE;
     }
 
     public ChemicalTask(long id, Quest quest) {
@@ -57,16 +64,33 @@ public final class ChemicalTask extends Task implements ConsumableTask.ExactStor
         return isAvailable() ? ChemicalStorage.key(chemicalId) : null;
     }
 
+    @Override
+    public void submitTask(TeamData data, ServerPlayer player, ItemStack changedStack) {
+        if (!changedStack.isEmpty() || !isMekanismAvailable() || !ConsumableTask.canSubmit(data, this)) return;
+        long required = consume ? amount - data.getProgress(this) : amount;
+        if (required <= 0) return;
+        long submitted = ChemicalStorage.submitFromInventory(player.getInventory(), chemicalId, required, consume);
+        if (consume) {
+            if (submitted > 0) data.addProgress(this, submitted);
+        } else if (submitted >= required) {
+            data.setProgress(this, amount);
+        }
+    }
+
     public Component targetName() {
         return nameOf(chemicalId);
     }
 
-    static Component nameOf(ResourceLocation id) {
-        return ChemicalStorage.name(id);
+    public static Component nameOf(ResourceLocation id) {
+        return isMekanismAvailable() ? ChemicalStorage.name(id) : missingName(id);
+    }
+
+    static Component missingName(ResourceLocation id) {
+        return Component.translatable(LANG + ".missing", id.toString());
     }
 
     static Icon iconOf(ResourceLocation id) {
-        return ChemicalStorage.icon(id);
+        return isMekanismAvailable() ? ChemicalStorage.icon(id) : TYPE.getIconSupplier();
     }
 
     @Override public Component getAltTitle() { return targetName(); }
@@ -77,7 +101,7 @@ public final class ChemicalTask extends Task implements ConsumableTask.ExactStor
     @Override
     public void fillConfigGroup(ConfigGroup group) {
         super.fillConfigGroup(group);
-        ChemicalPicker.addChemicalConfig(group, this);
+        if (isMekanismAvailable()) ChemicalPicker.addChemicalConfig(group, this);
         group.addLong("amount", amount, this::setAmount, DEFAULT_AMOUNT, 1, Long.MAX_VALUE)
                 .setNameKey(LANG + ".amount");
         group.addBool("consume", consume, value -> consume = value, false).setNameKey(LANG + ".consume");
