@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "B",
+    "I",
+    "C"
+  ],
+  "key": {
+    "B": "minecraft:book",
+    "I": "ae2:interface",
+    "C": "ae2:logic_processor"
+  },
+  "result": {
+    "id": "ftb_quest_nexus:ftbq_ae_submitter",
+    "count": 1
+  }
+}

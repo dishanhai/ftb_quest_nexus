@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:function",
+  "environment": "minecraft:default",
+  "structure": "ftb_quest_nexus:empty",
+  "max_ticks": 100,
+  "function": "ftb_quest_nexus:submitter_drop_and_pick"
+}
