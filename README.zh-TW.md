@@ -46,9 +46,9 @@ UI 使用外部 SH-Better-UI 的公開 `UiButton` 與玻璃面板，顯示綁定
 
 運行環境：**Java 21**，Minecraft 1.20.1，Forge 47.4.16。
 
-本機驗證相依套件：AE2 15.4.10、FTB Quests 2001.4.22、FTB Teams 2001.3.2、FTB Library 2001.2.13、Architectury 9.2.14、GuideME 20.1.15、SH-Better-UI 1.0.3、KotlinForForge 4.12.0。Jade 11.13.3 是可選資訊顯示集成。
+本機驗證相依套件：AE2 15.4.10、FTB Quests 2001.4.22、FTB Teams 2001.3.2、FTB Library 2001.2.13、Architectury 9.2.14、GuideME 20.1.15、SH-Better-UI 1.0.6、KotlinForForge 4.12.0。Jade 11.13.3 是可選資訊顯示集成。
 
-**SH-Better-UI 是必需前置**，直接使用桌面 `SH-Better-UI` 專案提供的玻璃面板、模糊、tooltip 和動效，不復制或內嵌其實現。開發建置預設引用 `../SH-Better-UI/build/libs/sh_better_ui-1.0.3-dev.jar`，可用 `-PshBetterUiJar=<dev-jar>` 指定其他位置；UI 專案修改後重新建置其 `devJar` 即可供本專案使用。
+**SH-Better-UI 是必需前置**，直接使用桌面 `SH-Better-UI` 專案提供的玻璃面板、模糊、tooltip 和動效，不復制或內嵌其實現。開發建置預設引用 `../SH-Better-UI/build/libs/sh_better_ui-1.0.6-dev.jar`，可用 `-PshBetterUiJar=<dev-jar>` 指定其他位置；UI 專案修改後重新建置其 `devJar` 即可供本專案使用。
 
 游戲中獨立安裝 SH-Better-UI 正式 jar 及其 KotlinForForge 前置。本模組自身不使用 Kotlin，也不將相依套件展開或嵌入模組 jar。其餘開發相依套件已放在 `libs/`，正式運行相依套件的本機副本在 `libs/runtime/`。不需要 GTCEu、GTLCore、GTLAdditions、KubeJS 或 LDLib。
 
@@ -63,7 +63,7 @@ $env:TMP = 'C:\jtmp'
 
 本機相依套件快取完整時可加 `--offline`。更換機器後需要取得 ForgeGradle、映射及測試相依套件快取。Forge wrapper 使用 Gradle 8.8。
 
-正式產物：`build/libs/ftb_quest_nexus-1.0.0.jar`。不要安裝 `-sources.jar` 或開發用的 UI `-dev.jar`。
+正式產物：`build/libs/ftb_quest_nexus-1.1.0.jar`。不要安裝 `-sources.jar` 或開發用的 UI `-dev.jar`。
 
 獨立伺服器端測試：
 
@@ -89,6 +89,10 @@ blurRadius = 8
 覆蓋主畫布、章節欄、工具按鈕、任務詳情、槽位、輸入框、捲軸、右鍵菜單及 FTBQ 所屬的設定／選擇視窗。原任務控制項、拖曳、縮放、編輯、提交、領獎及狀態顏色保持；整合包自定義背景、章節圖片、圖標與連線繼續使用原資源。其他模組的 FTB Library 介面不啟用覆蓋。
 
 沿用外部 SH-Better-UI，玻璃根背景取樣後再繪製控制項；模糊不可用時保留透明材質。非零透明度下的庫內細高光，以及 tooltip，繼續使用 UI 庫預設材質。實際畫面和交互仍需用戶端驗收，建置與驗證見 [docs/glass-verification.md](docs/glass-verification.md)。
+
+### 功能方塊外觀
+
+在模組清單開啟 **FTB Quest Nexus → 設定 → 方塊外觀**，分別選擇 AE 任務提交器與檢查器的主題，再按「套用」。可跟隨 SHBUI 目前的主題，或選用其內建材質與資源包註冊的主題。預設為透明玻璃，選項儲存在用戶端的 `[ftbqUi]` 下，鍵名為 `submitterTheme` 與 `checkerTheme`。資源包主題暫時無法使用時會顯示透明玻璃，並保留主題 ID。
 
 ## 原專案與來源
 

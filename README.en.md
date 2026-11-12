@@ -46,9 +46,9 @@ Use a build of SH-Better-UI for your platform that exposes the public `UiButton`
 
 Forge runtime requirements are **Java 21**, Minecraft 1.20.1, and Forge 47.4.16. See the [NeoForge README](neoforge/README.md) for the NeoForge build.
 
-Locally verified dependencies include AE2 15.4.10, FTB Quests 2001.4.22, FTB Teams 2001.3.2, FTB Library 2001.2.13, Architectury 9.2.14, GuideME 20.1.15, SH-Better-UI 1.0.3, and KotlinForForge 4.12.0. Jade 11.13.3 provides optional block information.
+Locally verified dependencies include AE2 15.4.10, FTB Quests 2001.4.22, FTB Teams 2001.3.2, FTB Library 2001.2.13, Architectury 9.2.14, GuideME 20.1.15, SH-Better-UI 1.0.6, and KotlinForForge 4.12.0. Jade 11.13.3 provides optional block information.
 
-**SH-Better-UI is required.** Its separate jar provides glass panels, blur, tooltips, and animations. Development builds use `../SH-Better-UI/build/libs/sh_better_ui-1.0.3-dev.jar` by default. Set `-PshBetterUiJar=<dev-jar>` to override the path. Rebuild SH-Better-UI's `devJar` to pick up changes from that project.
+**SH-Better-UI is required.** Its separate jar provides glass panels, blur, tooltips, and animations. Development builds use `../SH-Better-UI/build/libs/sh_better_ui-1.0.6-dev.jar` by default. Set `-PshBetterUiJar=<dev-jar>` to override the path. Rebuild SH-Better-UI's `devJar` to pick up changes from that project.
 
 Install the release SH-Better-UI jar and its KotlinForForge dependency separately in Minecraft. FTB Quest Nexus itself uses Java and ships its dependencies separately. Other development dependencies are in `libs/`, with local copies of runtime jars in `libs/runtime/`. The mod runs without GTCEu, GTLCore, GTLAdditions, KubeJS, or LDLib.
 
@@ -63,7 +63,7 @@ Run `gradlew.bat build` from the repository root to build Forge and then NeoForg
 
 Add `--offline` if the local dependency cache is complete. On a new machine, populate the ForgeGradle, mappings, and test dependency caches. The Forge wrapper uses Gradle 8.8.
 
-Install the release artifact at `build/libs/ftb_quest_nexus-1.0.0.jar` and the release version of SH-Better-UI.
+Install the release artifact at `build/libs/ftb_quest_nexus-1.1.0.jar` and the release version of SH-Better-UI.
 
 Run dedicated server GameTests with the following command.
 
@@ -89,6 +89,10 @@ blurRadius = 8
 The theme covers the main canvas, chapter sidebar, toolbar, quest details, slots, inputs, scrollbars, context menus, and FTBQ configuration and selection dialogs. Quest controls, dragging, zooming, editing, submissions, reward claims, and status colors keep their usual behavior. Modpack backgrounds, chapter images, icons, and connectors retain their original assets. The theme applies only to FTBQ screens.
 
 SH-Better-UI samples the root glass background before drawing controls. The translucent material still renders if blur is unavailable. Subtle highlights at nonzero opacity and tooltips use the library's presets. Client-side visual and interaction checks are pending. See the [glass build and verification notes](docs/glass-verification.md).
+
+### Functional block appearance
+
+From the Mods list, open **FTB Quest Nexus → Config → Block Style**. Choose a theme separately for the AE task submitter and checker, then select Apply. Each can follow the current SHBUI theme or use a built-in material or resource-pack theme. Both default to transparent glass. The client saves the choices as `submitterTheme` and `checkerTheme` under `[ftbqUi]`. If a resource-pack theme is unavailable, the screen uses transparent glass and keeps the saved theme ID.
 
 ## Origin and attribution
 

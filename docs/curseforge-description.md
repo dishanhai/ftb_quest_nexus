@@ -2,9 +2,7 @@
 
 ## Summary (One-Line Preview)
 
-> Bridges FTB Quests and Applied Energistics 2 with automated item/fluid task submission, stock checking, and reward claiming.
-
----
+> Automate FTB Quests submissions, stock checks, and rewards with AE2. Complete energy tasks with FE.
 
 ## Description (English First + 简体中文)
 
@@ -12,170 +10,144 @@
 
 *English | [简体中文](#简体中文)*
 
-**FTB Quest Nexus** bridges **FTB Quests** and **Applied Energistics 2 (AE2)**, providing automated item and fluid task submission, read-only stock checking for non-consumable tasks, automatic reward collection, and an optional frosted-glass UI theme for FTB Quests.
+**FTB Quest Nexus** connects **FTB Quests** to **Applied Energistics 2 (AE2)**. The submitter takes resources from ME storage to advance consumable tasks. The checker completes stock-detection tasks without taking resources and accepts FE for energy tasks. An optional client theme adds frosted glass to the quest book.
 
-Supported Platforms:
-- **Minecraft 1.20.1** (Forge)
-- **Minecraft 1.21.1** (NeoForge)
+**Supported platforms** · Minecraft **1.20.1 Forge** and **1.21.1 NeoForge**.
 
----
+### AE Auto Submitter
 
-## ✨ Key Features
+`ftb_quest_nexus:ftbq_ae_submitter`
 
-### 1. AE Auto Submitter (`ftb_quest_nexus:ftbq_ae_submitter`)
-Automates consumable FTB Quests tasks and collects rewards directly through your AE2 network.
-- **6-Sided AE2 Connection**: Connects to any powered AE2 network with an available channel.
-- **Direct Quest Queueing**: Bind the block to your player and FTB Team, then queue consumable **Item** and **Fluid** tasks directly from the FTB Quests detail screen.
-- **Auto-Match Mode**: Optional toggle that automatically matches unlocked consumable tasks against your AE2 storage without manual registration.
-- **Automated Reward Collection**:
-  - **Item Rewards** (including ordinary items and item-only random/loot tables) are inserted directly into your AE2 network.
-  - **XP & Level Rewards** are delivered to the bound player (or queued until they come online).
-  - **Overflow Protection**: Rewards that do not fit into AE2 storage are safely buffered inside the block and retried first. Mining the block preserves its binding, queue, settings, and buffered rewards.
-- **Team & Ownership Safety**: Supports repeatable quests without prematurely resetting teammate rewards, and includes an in-game 60-second approval prompt for ownership transfers within a team.
-- **Recipe**: Book + ME Interface + Logic Processor (arranged vertically).
+- Connect any face to a powered ME network with a free channel, then bind the block to your player and FTB Teams team. Use the quest details screen to choose a team submitter and queue eligible item and fluid goals. XP rewards can also be queued for quests with only non-consumable goals.
+- Turn on **Auto-Match** to submit eligible unlocked goals from ME storage without queueing them by hand. Search the submitter's queue and browse its progress by page.
+- Supported item rewards go to ME storage, including item-only random, loot, and all-table rewards. XP points and levels go to the bound player when online. For choice rewards, the bound player can open a single selection screen for multiple quests from a private chat message. FTB Quests handles the selected rewards.
+- The submitter saves item rewards that ME cannot accept and retries delivery. Normal mining preserves the binding, queue, settings, and pending deliveries. An ownership transfer to a teammate requires the current owner's approval within 60 seconds.
+- Craft with a **book**, **ME Interface**, and **Logic Processor**, in that order down a crafting column.
 
-### 2. ME FTB Quest Checker (`ftb_quest_nexus:ftbq_ae_checker`)
-Completes non-consumable detection tasks automatically by reading your AE2 storage snapshot once per second.
-- **Non-Destructive Stock Check**: Completes unlocked **non-consumable** item and fluid tasks when your AE2 stock meets the requirement—without extracting items or draining buckets.
-- **Smart Fluid Counting**: Combines native AE2 fluid storage with filled fluid buckets in item storage (`1,000 mB` per bucket).
-- **Progress Overview UI**: Built with **SH-Better-UI** glass panels, displaying binding status, network state, and real-time stock vs. required amounts with pagination and filters.
-- **Recipe**: Book + ME Interface + Calculation Processor (arranged vertically).
+### ME FTB Quest Checker
 
-### 3. Optional FTB Quests Glass Theme
-Includes a client-side frosted-glass visual overhaul exclusively for FTB Quests screens (`config/ftb_quest_nexus-client.toml`):
+`ftb_quest_nexus:ftbq_ae_checker`
+
+- Place the checker to bind it to yourself and your team. It reads ME stock once per second and completes eligible non-consumable item and fluid goals. Native fluid storage and filled buckets both count toward fluid stock, at **1,000 mB per bucket**. Matching bulk fluid can also count as whole buckets for eligible bucket item goals.
+- The glass panel shows stock against task requirements and supports search, type and status filters, sorting, and pagination.
+- Feed **Forge Energy (FE)** into the checker to advance eligible FTB Quests energy goals, even without an ME connection. On **Forge**, you can also join an optional **Flux Networks** network directly from the checker menu. On **NeoForge**, connect an FE output such as an **Applied Flux** Flux Accessor in output mode or a **Flux Networks** Flux Point.
+- Craft with a **book**, **ME Interface**, and **Calculation Processor**, in that order down a crafting column.
+
+### Mekanism Chemicals (NeoForge 1.21.1)
+
+- With **Mekanism**, modpacks can configure chemical tasks and rewards. Players can click a chemical task in the quest book to check or submit chemicals from tanks in their inventory, according to the task's settings.
+- Add **Applied Mekanistics** for automatic submission of consumable chemical goals, read-only checks of non-consumable chemical goals, and delivery of chemical rewards to ME storage.
+- If ME cannot accept the full reward, the remaining amount stays pending for that player. Open it from chat or with `/nexus_chemical_rewards` to retry or claim the remainder in tanks.
+
+### Optional Frosted-Glass Theme
+
+The quest book uses the original appearance by default. To enable glass, edit `config/ftb_quest_nexus-client.toml`, then reopen the quest book.
+
 ```toml
 [ftbqUi]
 mode = "GLASS" # ORIGINAL or GLASS
 opacity = 1.0  # 0.0 to 1.0
-blurRadius = 8 # 0 to 16
+blurRadius = 8 # 0 to 16, with 0 disabling blur
 ```
-Covers the main quest canvas, chapter sidebar, toolbar, quest details, slots, scrollbars, and dialogs while preserving custom modpack backgrounds, icons, and connectors.
 
----
+The theme covers the quest canvas, chapter sidebar, toolbar, quest details, and related dialogs while retaining modpack backgrounds, task icons, and quest links.
 
-## 📦 Dependencies
+### Installation and Dependencies
 
-### Required
-- **Applied Energistics 2 (AE2)**
-- **FTB Quests**
-- **FTB Teams**
-- **FTB Library**
-- **Architectury API**
-- **SH-Better-UI** (`1.0.3+`) & **Kotlin for Forge** (required by SH-Better-UI)
+Use **Java 21**. For multiplayer, install the same Nexus build and its required mods on the server and on each client.
 
-### Optional
-- **Jade** (In-game block tooltip integration)
-- **JEI** (Recipe & item lookup)
+| Minimum version | Forge 1.20.1 | NeoForge 1.21.1 |
+| --- | --- | --- |
+| Mod loader | Forge 47.4.16 | NeoForge 21.1.251 |
+| Applied Energistics 2 | 15.4.10 | 19.2.18 |
+| FTB Quests | 2001.4.22 | 2101.1.36 |
+| FTB Teams | 2001.3.2 | 2101.1.11 |
+| FTB Library | 2001.2.13 | 2101.1.37 |
+| SH-Better-UI | 1.0.6 | 1.0.6 |
 
----
+Also install **Architectury API** for the FTB mods, **GuideME** for AE2, and the loader-specific **Kotlin for Forge** runtime for SH-Better-UI.
+
+**Optional** · Jade for block tooltips, JEI for recipes and item lookup, and the energy and chemical integrations listed above.
+
 ---
 
 # 简体中文
 
-**FTB Quest Nexus** 是连接 **FTB Quests** 与 **Applied Energistics 2 (AE2)** 的扩展模组，提供消耗型物品/流体任务自动提交、非消耗型任务只读库存检测、任务奖励自动回网，以及可选的 FTB Quests 毛玻璃界面主题。
+**FTB Quest Nexus** 将 **FTB Quests** 与 **Applied Energistics 2（AE2）** 接入同一套任务流程。提交器从 ME 库存扣除资源推进消耗型任务，检查器读取库存完成检测型任务，也能接收 FE 推进能量任务。任务书可选用毛玻璃主题。
 
-支持平台：
-- **Minecraft 1.20.1** (Forge)
-- **Minecraft 1.21.1** (NeoForge)
+**支持平台** · Minecraft **1.20.1 Forge** 和 **1.21.1 NeoForge**。
 
----
+### AE 自动提交器
 
-## ✨ 核心功能
+`ftb_quest_nexus:ftbq_ae_submitter`
 
-### 1. AE 自动提交器 (`ftb_quest_nexus:ftbq_ae_submitter`)
-通过 AE2 网络自动提交消耗型任务目标，并自动回收任务奖励。
-- **六面接入 AE 网络**：接入有电力与可用频道的 AE2 网络即可工作。
-- **任务详情页直接登记**：绑定玩家与 FTB Teams 队伍后，可在 FTB Quests 任务详情页一键登记消耗型**物品**与**流体**目标；无消耗目标的纯经验奖励任务也可单独登记领奖。
-- **自动匹配模式**：开启界面上的「匹配」开关后，无需手动登记即可自动从 AE 库存匹配并提交所有已解锁的消耗型目标。
-- **自动领取奖励**：
-  - **物品奖励**（含普通物品及纯物品构成的随机/战利品嵌套奖励表）自动存入 AE 网络。
-  - **经验值与经验等级奖励**直接发放给绑定玩家（离线时自动挂起等待上线）。
-  - **满仓缓存保护**：AE 网络空间不足时，剩余奖励安全保存在方块内并优先重试回网；正常挖掘掉落完整保留绑定、队列、设置与待交付奖励。
-- **队伍协同与安全移交**：兼容可重复任务重置规则，同队成员申请移交绑定需当前绑定者在 60 秒内通过游戏内消息确认。
-- **合成配方**：书 + ME 接口 + 逻辑处理器（工作台竖列摆放）。
+- 六面均可连接有电力和空闲频道的 ME 网络。绑定玩家及其 FTB Teams 队伍后，可在任务详情页选择本队提交器，登记符合条件的物品和流体目标。只有非消耗型目标的任务也可登记领取经验奖励。
+- 开启「匹配」后，提交器会从 ME 库存自动提交符合条件的已解锁目标。队列支持搜索和分页，可查看各目标的提交进度。
+- 支持回网的物品奖励自动存入 ME，包括纯物品随机、战利品和全表奖励。经验值与经验等级在绑定玩家在线时发放。遇到自选奖励，绑定玩家可从私人聊天消息打开批量选择页，一次选择多个任务的奖励，由 FTB Quests 按原有规则发放。
+- ME 收不下的物品奖励会保存在提交器中，后续优先补送。正常挖掘保留绑定、队列、设置和待交付奖励。同队移交需要当前绑定者在 60 秒内确认。
+- 合成时在工作台同一列从上到下放入**书**、**ME 接口**和**逻辑处理器**。
 
-### 2. ME FTB 任务检查器 (`ftb_quest_nexus:ftbq_ae_checker`)
-每秒通过只读库存快照检测 AE2 网络库存，自动完成非消耗型（检测型）任务。
-- **零消耗只读检测**：当 AE 库存达到需求总量时自动完成已解锁的**非消耗型**物品与流体目标，全程不取出物品、不排空流体桶。
-- **智能流体折算**：流体库存自动合计 AE 原生流体与物品库存内的流体桶（每桶按 `1000 mB` 计），桶物品本身仍可同时匹配物品任务。
-- **可视化进度面板**：采用 **SH-Better-UI** 玻璃面板，直观显示绑定状态、网络状态及各目标的「当前库存 / 总需求」，支持翻页、滚轮与类型筛选。
-- **合成配方**：书 + ME 接口 + 运算处理器（工作台竖列摆放）。
+### ME FTB 任务检查器
 
-### 3. FTB Quests 透明毛玻璃主题（可选）
-支持通过客户端配置文件 `config/ftb_quest_nexus-client.toml` 将 FTB Quests 界面切换为毛玻璃风格（默认保留原版 `ORIGINAL`）：
+`ftb_quest_nexus:ftbq_ae_checker`
+
+- 放置时绑定放置者及其队伍。每秒读取一次 ME 库存，库存达标时完成符合条件的非消耗型物品和流体目标。流体统计合计散装流体和实体流体桶，每桶按 **1,000 mB** 计算。符合条件的流体桶物品目标也可将相应的散装流体折算成整桶计数。
+- 玻璃面板显示当前库存与任务需求，支持搜索、类型与状态筛选、排序及翻页。
+- 向检查器输入 **FE** 可推进符合条件的 FTB Quests 能量目标，断开 ME 网络时也能提交能量。**Forge** 可从检查器菜单直接加入 **Flux Networks** 通量网络。**NeoForge** 可接入 FE 输出设备，例如输出模式下的 **Applied Flux** 通量访问点，或 **Flux Networks** 通量网络接入点。
+- 合成时在工作台同一列从上到下放入**书**、**ME 接口**和**运算处理器**。
+
+### Mekanism 化学品联动（NeoForge 1.21.1）
+
+- 安装 **Mekanism** 后，整合包可配置化学品任务和奖励。点击任务书中的化学品目标，可按任务设置检测或消耗背包储罐中的化学品。
+- 同时安装 **Applied Mekanistics** 后，可从 ME 自动提交消耗型化学品目标、只读检查非消耗型化学品目标，并优先将化学品奖励存入 ME。
+- ME 未收完的化学品会留在玩家的待领取记录中。点击聊天提示或执行 `/nexus_chemical_rewards`，可重试回网或将余量罐装领取。
+
+### 可选的任务书毛玻璃主题
+
+默认保留原版外观。编辑客户端的 `config/ftb_quest_nexus-client.toml` 后，重新打开任务书即可应用。
+
 ```toml
 [ftbqUi]
-mode = "GLASS" # 可选 ORIGINAL 或 GLASS
-opacity = 1.0  # 0.0 ~ 1.0 不透明度缩放
-blurRadius = 8 # 0 ~ 16 背景模糊半径
+mode = "GLASS" # ORIGINAL 为原版，GLASS 为毛玻璃
+opacity = 1.0  # 0.0 至 1.0
+blurRadius = 8 # 0 至 16，设为 0 关闭模糊
 ```
-覆盖主画布、章节栏、工具栏、任务详情、槽位、输入框与右键菜单，同时完整保留整合包自定义背景、章节图标与任务连线。
+
+主题覆盖任务画布、章节栏、工具栏、任务详情及相关对话框，并保留整合包的自定义背景、任务图标和连线。
+
+### 安装与依赖
+
+使用 **Java 21**。联机时，服务端和客户端均需安装同一构建的 Nexus 及其必需前置。
+
+| 最低版本 | Forge 1.20.1 | NeoForge 1.21.1 |
+| --- | --- | --- |
+| 模组加载器 | Forge 47.4.16 | NeoForge 21.1.251 |
+| Applied Energistics 2 | 15.4.10 | 19.2.18 |
+| FTB Quests | 2001.4.22 | 2101.1.36 |
+| FTB Teams | 2001.3.2 | 2101.1.11 |
+| FTB Library | 2001.2.13 | 2101.1.37 |
+| SH-Better-UI | 1.0.6 | 1.0.6 |
+
+另需安装 FTB 系列所需的 **Architectury API**、AE2 所需的 **GuideME**，以及 SH-Better-UI 所需的对应平台 **Kotlin for Forge**。
+
+**可选联动** · Jade 方块信息提示、JEI 配方与物品查询，以及上文的能量和化学品联动。
 
 ---
 
-## 📦 前置与依赖
+## Changelog — v1.1.0
 
-### 必需前置
-- **Applied Energistics 2 (AE2)**
-- **FTB Quests**
-- **FTB Teams**
-- **FTB Library**
-- **Architectury API**
-- **SH-Better-UI** (`1.0.3+`) 及 **Kotlin for Forge**（SH-Better-UI 运行所需）
+- The checker accepts FE for eligible energy tasks even when disconnected from ME. On Forge, its menu can connect directly to a Flux Networks network.
+- Item-only all-table rewards send every entry to ME. The submitter saves pending deliveries, and the bound player can select choice rewards from several quests on one screen.
+- On NeoForge, Mekanism chemical tasks support inventory tanks. With Applied Mekanistics, the submitter and checker can also use ME chemical storage. Chemical rewards that ME cannot accept can be claimed in tanks.
+- The quest details screen loads team submitters page by page. The submitter and checker screens have updated icons for the queue, rewards, and task filters.
 
-### 可选联动
-- **Jade**（方块信息提示集成）
-- **JEI**（配方与物品检索）
+For multiplayer, update the server and all clients to v1.1.0 together.
 
----
----
+## v1.1.0 更新日志（简体中文）
 
-## Changelog — v1.0.0 (Initial Release)
+- 检查器断开 ME 时仍可接收 FE，推进符合条件的能量任务。Forge 可从检查器菜单直接加入 Flux Networks 通量网络。
+- 纯物品全表奖励的每个条目均可回网。提交器保存待交付奖励，绑定玩家可在同一页面选择多个任务的自选奖励。
+- NeoForge 的 Mekanism 化学品任务支持使用背包储罐。安装 Applied Mekanistics 后，提交器和检查器也可使用 ME 化学品库存。ME 未接收的化学品奖励可罐装领取。
+- 任务详情页按页加载队伍提交器列表。提交器和检查器界面更新了队列、奖励和任务筛选图标。
 
-# FTB Quest Nexus v1.0.0 — Initial Release
-
-*English | [简体中文](#v100-更新日志简体中文)*
-
-### ✨ New Features
-- **AE Auto Submitter (`ftb_quest_nexus:ftbq_ae_submitter`)**:
-  - Connects to AE2 networks on all 6 faces to automatically extract and submit consumable **Item** and **Fluid** tasks once per second.
-  - Supports manual task registration from FTB Quests detail screens and an optional **Auto-Match** mode for unlocked consumable tasks.
-  - Automatically collects **Item Rewards** (including nested item-only random/loot tables) into AE2 storage and delivers **XP / Level Rewards** to the bound player.
-  - Includes overflow reward buffering, repeatable quest reward protection, and in-game 60-second confirmation for team ownership transfers.
-  - Preserves binding, queue, settings, and buffered rewards when mined.
-- **ME FTB Quest Checker (`ftb_quest_nexus:ftbq_ae_checker`)**:
-  - Reads AE2 network stock once per second using a read-only snapshot to automatically complete unlocked **non-consumable** item and fluid tasks without extracting items or draining buckets.
-  - Counts both native AE2 fluid storage and filled fluid buckets (`1,000 mB` per bucket).
-  - Features a paginated **SH-Better-UI** glass interface with task filtering, mouse wheel scrolling, and real-time stock progress.
-- **Optional FTB Quests Glass UI Theme**:
-  - Added client config (`config/ftb_quest_nexus-client.toml`) with `ORIGINAL` and `GLASS` modes, adjustable `opacity` (`0.0–1.0`), and `blurRadius` (`0–16`).
-- **Mod Integration & Platform Support**:
-  - Added **Jade** tooltip integration for block status inspection.
-  - Available for **Minecraft 1.20.1 (Forge 47.4.16+)** and **Minecraft 1.21.1 (NeoForge 21.1.251+)**.
-
-### 📦 Requirements
-- **AE2**, **FTB Quests**, **FTB Teams**, **FTB Library**, **Architectury API**, **SH-Better-UI (`1.0.3+`)**, and **Kotlin for Forge**.
-
----
-
-## v1.0.0 更新日志（简体中文）
-
-### ✨ 新增内容
-- **AE 自动提交器 (`ftb_quest_nexus:ftbq_ae_submitter`)**：
-  - 支持六面接入 AE2 网络，每秒自动扣除并提交消耗型**物品**与**流体**任务目标。
-  - 支持在 FTB Quests 任务详情页手动登记队列，或开启「匹配」模式自动匹配已解锁的消耗型任务。
-  - 自动回收**物品奖励**（含纯物品随机/战利品嵌套表）至 AE 网络，并将**经验点/经验等级奖励**发放给绑定玩家（离线时自动挂起等待上线）。
-  - 内置满仓奖励缓存保护、可重复任务领奖防重置机制，以及同队成员 60 秒游戏内消息确认移交机制。
-  - 正常挖掘掉落完整保留绑定、队列、设置与待交付奖励。
-- **ME FTB 任务检查器 (`ftb_quest_nexus:ftbq_ae_checker`)**：
-  - 每秒通过只读库存快照检测 AE2 库存，自动完成已解锁的**非消耗型**物品与流体任务，全程不取出物品、不排空流体桶。
-  - 流体统计自动合并 AE 原生流体与物品库存中的流体桶（每桶 `1000 mB`）。
-  - 搭载基于 **SH-Better-UI** 的毛玻璃分页界面，支持实时查看库存进度、滚轮翻页与类型筛选。
-- **FTB Quests 透明毛玻璃主题（可选）**：
-  - 新增客户端配置 `config/ftb_quest_nexus-client.toml`，支持切换 `ORIGINAL` / `GLASS` 模式并调节不透明度（`opacity`）与背景模糊半径（`blurRadius`）。
-- **联动与跨版本支持**：
-  - 集成 **Jade** 方块信息提示。
-  - 同步支持 **Minecraft 1.20.1 (Forge 47.4.16+)** 与 **Minecraft 1.21.1 (NeoForge 21.1.251+)**。
-
-### 📦 依赖要求
-- 需安装 **AE2**、**FTB Quests**、**FTB Teams**、**FTB Library**、**Architectury API**、**SH-Better-UI (`1.0.3+`)** 及 **Kotlin for Forge**。
+联机时，请将服务端和所有客户端一并更新到 v1.1.0。

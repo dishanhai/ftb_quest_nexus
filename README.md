@@ -46,11 +46,11 @@ UI 使用外置 SH-Better-UI 的公开 `UiButton` 与玻璃面板，显示绑定
 
 运行环境：**Java 21**，Minecraft 1.20.1，Forge 47.4.16。
 
-本机验证依赖：AE2 15.4.10、FTB Quests 2001.4.22、FTB Teams 2001.3.2、FTB Library 2001.2.13、Architectury 9.2.14、GuideME 20.1.15、SH-Better-UI 1.0.3、KotlinForForge 4.12.0。Jade 11.13.3 是可选信息显示集成。
+本机验证依赖：AE2 15.4.10、FTB Quests 2001.4.22、FTB Teams 2001.3.2、FTB Library 2001.2.13、Architectury 9.2.14、GuideME 20.1.15、SH-Better-UI 1.0.6、KotlinForForge 4.12.0。Jade 11.13.3 是可选信息显示集成。
 
-**SH-Better-UI 是必需前置**，直接使用桌面 `SH-Better-UI` 项目提供的玻璃面板、模糊、tooltip 和动效，不复制或内嵌其实现。开发构建默认引用 `../SH-Better-UI/build/libs/sh_better_ui-1.0.3-dev.jar`，可用 `-PshBetterUiJar=<dev-jar>` 指定其他位置；UI 项目修改后重新构建其 `devJar` 即可供本项目使用。
+**SH-Better-UI 是必需前置**，直接使用桌面 `SH-Better-UI` 项目提供的玻璃面板、模糊、tooltip 和动效，不复制或内嵌其实现。开发构建默认引用 `../SH-Better-UI/build/libs/sh_better_ui-1.0.6-dev.jar`，可用 `-PshBetterUiJar=<dev-jar>` 指定其他位置；UI 项目修改后重新构建其 `devJar` 即可供本项目使用。
 
-游戏中独立安装 SH-Better-UI 正式 jar 及其 KotlinForForge 前置。检查器类型筛选需要包含 `IngredientFilter` API 的 SH-Better-UI 1.0.3 或更新构建。本模组自身不使用 Kotlin，也不将依赖展开或嵌入模组 jar。其余开发依赖已放在 `libs/`，正式运行依赖的本机副本在 `libs/runtime/`。不需要 GTCEu、GTLCore、GTLAdditions、KubeJS 或 LDLib。
+游戏中独立安装 SH-Better-UI 正式 jar 及其 KotlinForForge 前置。检查器类型筛选需要包含 `IngredientFilter` API 的 SH-Better-UI 1.0.6 或更新构建。本模组自身不使用 Kotlin，也不将依赖展开或嵌入模组 jar。其余开发依赖已放在 `libs/`，正式运行依赖的本机副本在 `libs/runtime/`。不需要 GTCEu、GTLCore、GTLAdditions、KubeJS 或 LDLib。
 
 ```powershell
 $env:JAVA_HOME = 'C:\Program Files\Java\jdk-21.0.11'
@@ -63,7 +63,7 @@ $env:TMP = 'C:\jtmp'
 
 本机依赖缓存完整时可加 `--offline`。更换机器后需要取得 ForgeGradle、映射及测试依赖缓存。Forge wrapper 使用 Gradle 8.8。
 
-正式产物：`build/libs/ftb_quest_nexus-1.0.0.jar`。不要安装 `-sources.jar` 或开发用的 UI `-dev.jar`。
+正式产物：`build/libs/ftb_quest_nexus-1.1.0.jar`。不要安装 `-sources.jar` 或开发用的 UI `-dev.jar`。
 
 独立服务端测试：
 
@@ -73,7 +73,28 @@ $env:TMP = 'C:\jtmp'
 
 使用新项目的 `run/` 目录，不触碰现有游戏实例。实际执行结果见 `docs/verification.md`，实机待验内容见 [TODO.md](TODO.md)。
 
-## FTBQ 透明玻璃覆盖
+## FTB Quest Nexus 配置
+
+在模组列表打开 FTB Quest Nexus 的「配置」，可在「外观」和「功能」之间切换。功能页提供任务详情的提交器入口及提交器／检查器的搜索补全开关。两项默认开启，应用后重新打开相应界面即可生效。
+
+### 服务端配置
+
+管理员可以通过 `/ftbqn config` 查看当前服务端设置。在下列键名后加 `true` 或 `false` 即可保存并生效，例如 `/ftbqn config rules autoSubmit false`。专用服务器也可在控制台执行。
+
+手动编辑时请先停服。Forge 使用世界目录下的 `serverconfig/ftb_quest_nexus-server.toml`。NeoForge 默认使用实例的 `config/ftb_quest_nexus-server.toml`，如世界目录下存在同名 `serverconfig` 配置，则优先使用并写入该文件。
+
+| 分组 | 键名 | 默认值 | 作用 |
+| --- | --- | --- | --- |
+| `defaults` | `matching` | 关 | 新提交器启用匹配模式。开启时可自动扣除 AE 库存。 |
+| `defaults` | `queuedRewards` | 开 | 新提交器在手动模式下仅领取队列所属任务的奖励。 |
+| `defaults` | `completionToast` | 开 | 新提交器提交时显示完成提示。 |
+| `rules` | `autoSubmit` | 开 | 允许提交器在手动队列和匹配模式中自动扣料并提交。 |
+| `rules` | `autoCheck` | 开 | 允许检查器扫描任务库存、推进检查目标和接收任务所需的 FE。 |
+| `rules` | `networkRewards` | 开 | 允许提交器将新领到的物品和支持的化学品奖励回网。已入账的待交付奖励继续重试。 |
+
+默认值应用于首次由物品放置的提交器。旧存档和采掘后重新放置的提交器保留机器自身的设置。
+
+### FTBQ 透明玻璃覆盖
 
 两个平台都可通过客户端 `config/ftb_quest_nexus-client.toml` 切换 FTBQ 外观，默认保留原版：
 
@@ -89,6 +110,10 @@ blurRadius = 8
 覆盖主画布、章节栏、工具按钮、任务详情、槽位、输入框、滚动条、右键菜单及 FTBQ 所属的配置／选择窗口。原任务控件、拖曳、缩放、编辑、提交、领奖及状态颜色保持；整合包自定义背景、章节图片、图标与连线继续使用原资源。其他模组的 FTB Library 界面不启用覆盖。
 
 复用外置 SH-Better-UI，玻璃根背景采样后再绘制控件；模糊不可用时保留透明材质。非零透明度下的库内细高光，以及 tooltip，继续使用 UI 库预设材质。实际画面和交互仍需客户端验收，构建与验证见 [docs/glass-verification.md](docs/glass-verification.md)。
+
+### 功能方块外观
+
+在模组列表打开 **FTB Quest Nexus → 配置 → 方块外观**，分别选择 AE 任务提交器和检查器的主题，然后点击「应用」。可以跟随 SHBUI 当前主题，也可以选择其内置材质或资源包注册的主题。默认使用透明玻璃，选项保存在客户端的 `[ftbqUi]` 下，键名为 `submitterTheme` 和 `checkerTheme`。资源包主题暂不可用时回退到透明玻璃，主题 ID 会保留。
 
 ## 原项目与来源
 
