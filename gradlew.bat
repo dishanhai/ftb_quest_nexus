@@ -40,4 +40,11 @@ set "BUILD_RESULT=%ERRORLEVEL%"
 
 :finish
 popd
+if "%BUILD_RESULT%"=="0" exit /b 0
+
+@rem Explorer opens batch files with cmd.exe /c ""<path>" ".
+set "WRAPPER_PATH=%~f0"
+setlocal EnableDelayedExpansion
+set "EXPLORER_COMMAND=""!WRAPPER_PATH!" ""
+if /i "!CMDCMDLINE:* /c =!"=="!EXPLORER_COMMAND!" pause
 exit /b %BUILD_RESULT%
