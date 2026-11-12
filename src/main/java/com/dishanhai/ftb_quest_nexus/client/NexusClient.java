@@ -8,11 +8,13 @@ import com.dishanhai.sh_better_ui.client.glass.GlassTooltip;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.ConfigScreenHandler;
 import net.minecraftforge.client.event.RenderTooltipEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
 /** Author: dishanhai. Only loaded on physical clients; the common entry point does not link screen classes. */
@@ -22,6 +24,9 @@ public final class NexusClient {
 
     @SubscribeEvent
     public static void setup(FMLClientSetupEvent event) {
+        ModList.get().getModContainerById(QuestNexus.MOD_ID).ifPresent(container ->
+                container.registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
+                        () -> new ConfigScreenHandler.ConfigScreenFactory((client, parent) -> new NexusConfigScreen(parent))));
         event.enqueueWork(() -> {
             MenuScreens.register(NexusContent.MENU.get(), SubmitterScreen::new);
             MenuScreens.register(NexusContent.CHECKER_MENU.get(), CheckerScreen::new);

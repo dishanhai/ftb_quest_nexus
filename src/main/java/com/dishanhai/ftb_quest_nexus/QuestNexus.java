@@ -8,6 +8,8 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.config.ModConfig;
 import com.dishanhai.ftb_quest_nexus.config.ClientUiConfig;
+import com.dishanhai.ftb_quest_nexus.config.NexusConfigCommands;
+import com.dishanhai.ftb_quest_nexus.config.ServerConfig;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.server.ServerStoppedEvent;
@@ -23,8 +25,10 @@ public final class QuestNexus {
     public static final String MOD_ID = "ftb_quest_nexus";
 
     public QuestNexus() {
-        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, ClientUiConfig.SPEC);
         var bus = FMLJavaModLoadingContext.get().getModEventBus();
+        bus.addListener(ClientUiConfig::onLoad);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, ClientUiConfig.SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);
         NexusContent.BLOCKS.register(bus);
         NexusContent.ITEMS.register(bus);
         NexusContent.BLOCK_ENTITIES.register(bus);
@@ -32,6 +36,7 @@ public final class QuestNexus {
         NexusNetwork.init();
         bus.addListener(QuestNexus::buildCreativeTab);
         MinecraftForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> {
+            NexusConfigCommands.register(event.getDispatcher());
             BindingTransfer.register(event.getDispatcher());
             ChoiceRewardNotices.register(event.getDispatcher(), SubmitterBlockEntity::availableChoiceRewards,
                     FtbqChoiceRewardPackets::sendOpen);

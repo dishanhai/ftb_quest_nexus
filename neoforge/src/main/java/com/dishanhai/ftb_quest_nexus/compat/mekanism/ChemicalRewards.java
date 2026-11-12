@@ -3,6 +3,8 @@ package com.dishanhai.ftb_quest_nexus.compat.mekanism;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.storage.MEStorage;
+import com.dishanhai.ftb_quest_nexus.config.ServerConfig;
+import com.dishanhai.ftb_quest_nexus.config.ServerOption;
 import com.dishanhai.ftb_quest_nexus.network.ChemicalRewardPackets;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
 import com.mojang.brigadier.CommandDispatcher;
@@ -38,7 +40,8 @@ public final class ChemicalRewards {
     }
 
     static void receive(ServerPlayer player, ResourceLocation chemical, long amount) {
-        receive(player, chemical, amount, entry -> insertBound(player, entry));
+        receive(player, chemical, amount, entry -> ServerConfig.get(ServerOption.NETWORK_REWARDS)
+                ? insertBound(player, entry) : 0);
     }
 
     public static boolean claimFromSubmitter(ServerPlayer player, TeamData data, ChemicalReward reward,

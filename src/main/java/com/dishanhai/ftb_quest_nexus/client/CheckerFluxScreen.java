@@ -2,7 +2,7 @@ package com.dishanhai.ftb_quest_nexus.client;
 
 import com.dishanhai.ftb_quest_nexus.network.CheckerFluxPackets;
 import com.dishanhai.ftb_quest_nexus.network.NexusNetwork;
-import com.dishanhai.sh_better_ui.client.glass.GlassPalette;
+import com.dishanhai.ftb_quest_nexus.config.ClientUiConfig;
 import com.dishanhai.sh_better_ui.client.glass.GlassTheme;
 import com.dishanhai.sh_better_ui.client.gui.display.GraphicIcon;
 import com.dishanhai.sh_better_ui.client.gui.scaled.GuiRenderUtil;
@@ -18,6 +18,7 @@ import java.util.List;
 
 /** Author: dishanhai. Chooses a server-listed network while the checker menu remains open. */
 final class CheckerFluxScreen extends Screen {
+    private final BlockScreenTheme appearance = new BlockScreenTheme();
     private static final String CHECKER = "gui.ftb_quest_nexus.checker.";
     private static final String KEY = CHECKER + "flux.";
     private static final int DISCONNECTED = -1;
@@ -172,20 +173,21 @@ final class CheckerFluxScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        var themeFrame = appearance.resolve(ClientUiConfig.checkerTheme());
         renderBackground(graphics);
-        GlassTheme theme = GlassTheme.GLASS;
+        GlassTheme theme = themeFrame.panel();
         theme.rootShadow(graphics, left, top, panelWidth, panelHeight);
-        theme.box(graphics, left, top, panelWidth, panelHeight, GlassPalette.ROOT_EDGE, theme.panelBg);
-        graphics.drawCenteredString(font, title, width / 2, top + 8, GlassPalette.TEXT_HEAD);
+        theme.box(graphics, left, top, panelWidth, panelHeight, theme.colors.ROOT_EDGE, theme.panelBg);
+        graphics.drawCenteredString(font, title, width / 2, top + 8, theme.colors.TEXT_HEAD);
         Component current = Component.translatable(KEY + "current", currentNetwork());
         graphics.drawString(font, GuiRenderUtil.trimText(font, current.getString(), panelWidth - 20),
-                left + 10, top + 22, GlassPalette.TEXT, false);
+                left + 10, top + 22, theme.colors.TEXT, false);
         if (view.options().isEmpty()) {
             graphics.drawCenteredString(font, Component.translatable(KEY + "no_networks"),
-                    width / 2, top + 41, GlassPalette.TEXT_MUTED);
+                    width / 2, top + 41, theme.colors.TEXT_MUTED);
         }
         graphics.drawCenteredString(font, Component.translatable(KEY + "page", page + 1, pageCount()),
-                width / 2, top + 41 + rows.size() * ROW_HEIGHT, GlassPalette.TEXT_MUTED);
-        super.render(graphics, mouseX, mouseY, partialTick);
+                width / 2, top + 41 + rows.size() * ROW_HEIGHT, theme.colors.TEXT_MUTED);
+        themeFrame.paint(() -> super.render(graphics, mouseX, mouseY, partialTick));
     }
 }

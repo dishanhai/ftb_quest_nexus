@@ -10,6 +10,8 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import com.dishanhai.ftb_quest_nexus.NexusContent;
 import com.dishanhai.ftb_quest_nexus.QuestNexus;
+import com.dishanhai.ftb_quest_nexus.config.ServerConfig;
+import com.dishanhai.ftb_quest_nexus.config.ServerOption;
 import com.mojang.authlib.GameProfile;
 import dev.ftb.mods.ftblibrary.config.Tristate;
 import dev.ftb.mods.ftbquests.quest.Chapter;
@@ -438,6 +440,22 @@ public final class CheckerGameTests {
                 runScan(entity);
                 helper.assertTrue(energy.receiveEnergy(4000, true) == 1000 && f.data.getProgress(task) == 0,
                         "FE simulation changed progress or ignored the input limit");
+                var server = helper.getLevel().getServer();
+                var console = server.createCommandSourceStack().withSuppressedOutput();
+                boolean previousRule = ServerConfig.get(ServerOption.AUTO_CHECK);
+                String command = "ftbqn config rules autoCheck ";
+                try {
+                    server.getCommands().performPrefixedCommand(console, command + false);
+                    helper.assertTrue(!ServerConfig.get(ServerOption.AUTO_CHECK), "Server command did not turn off the checker");
+                    helper.assertTrue(energy.receiveEnergy(4000, false) == 0 && f.data.getProgress(task) == 0,
+                            "Disabled checker accepted FE through its previous target");
+                    runScan(entity);
+                    helper.assertTrue(entity.writeClientState(0).getString("status").equals("server_disabled"),
+                            "Disabled checker continued scanning");
+                } finally {
+                    server.getCommands().performPrefixedCommand(console, command + previousRule);
+                }
+                runScan(entity);
                 helper.assertTrue(energy.receiveEnergy(4000, false) == 1000 && f.data.getProgress(task) == 1000,
                         "Accepted FE did not advance the task");
                 helper.assertTrue(entity.applyAction(owner, 1) && energy.receiveEnergy(4000, false) == 0,

@@ -22,7 +22,11 @@ def sharedJava = fileTree('../src/main/java') {
     include 'com/dishanhai/ftb_quest_nexus/client/FtbqSubmitterSelectionClient.java'
     include 'com/dishanhai/ftb_quest_nexus/client/HeaderButtonLayout.java'
     include 'com/dishanhai/ftb_quest_nexus/client/NexusIcons.java'
+    include 'com/dishanhai/ftb_quest_nexus/client/BlockScreenTheme.java'
+    include 'com/dishanhai/ftb_quest_nexus/client/NexusConfigScreen.java'
     include 'com/dishanhai/ftb_quest_nexus/client/glass/GlassUiPolicy.java'
+    include 'com/dishanhai/ftb_quest_nexus/config/NexusConfigCommands.java'
+    include 'com/dishanhai/ftb_quest_nexus/config/ServerOption.java'
 }
 sourceSets.test.java.srcDir '../src/test/java'
 sourceSets.test.java.exclude '**/ForgeQuestGlassMixinContractTest.java'

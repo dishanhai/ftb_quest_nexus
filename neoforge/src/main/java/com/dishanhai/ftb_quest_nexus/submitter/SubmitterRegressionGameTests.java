@@ -3,16 +3,23 @@ package com.dishanhai.ftb_quest_nexus.submitter;
 // Author: dishanhai. Real block/FTBQ/AE regression paths; only network power is bypassed.
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.parts.PartHelper;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.api.storage.IStorageProvider;
+import appeng.api.util.AEColor;
+import appeng.core.definitions.AEBlocks;
+import appeng.core.definitions.AEParts;
 import com.dishanhai.ftb_quest_nexus.NexusContent;
 import com.dishanhai.ftb_quest_nexus.QuestNexus;
+import com.dishanhai.ftb_quest_nexus.config.ServerConfig;
+import com.dishanhai.ftb_quest_nexus.config.ServerOption;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.FtbqAutoClaimDeferral;
 import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalReward;
+import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalRewards;
 import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalTask;
 import com.mojang.authlib.GameProfile;
 import dev.ftb.mods.ftblibrary.config.Tristate;
@@ -352,6 +359,109 @@ public final class SubmitterRegressionGameTests {
                         SubmitterBlockEntity::availableChoiceRewards, delivery) == null && delivered.size() == 2,
                         "The same choice batch could be replayed");
             });
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void serverDefaultsOnlyApplyToFreshPlacement(GameTestHelper helper) {
+        var level = helper.getLevel();
+        var server = level.getServer();
+        var console = server.createCommandSourceStack().withSuppressedOutput();
+        var commands = server.getCommands();
+        String command = "ftbqn config defaults ";
+        boolean matching = ServerConfig.get(ServerOption.DEFAULT_MATCHING);
+        boolean queued = ServerConfig.get(ServerOption.DEFAULT_QUEUED_REWARDS);
+        boolean toast = ServerConfig.get(ServerOption.DEFAULT_COMPLETION_TOAST);
+        var block = NexusContent.SUBMITTER.get();
+        var state = block.defaultBlockState();
+        var stack = new ItemStack(block);
+        BlockPos freshPos = new BlockPos(1, 1, 1);
+        BlockPos restoredPos = new BlockPos(2, 1, 1);
+        helper.setBlock(freshPos, block);
+        helper.setBlock(restoredPos, block);
+        var fresh = (SubmitterBlockEntity) helper.getBlockEntity(freshPos);
+        var restored = (SubmitterBlockEntity) helper.getBlockEntity(restoredPos);
+        var saved = new CompoundTag();
+        restored.saveUserData(saved, level.registryAccess());
+        restored.loadUserData(saved, level.registryAccess());
+        try {
+            commands.performPrefixedCommand(console, command + "matching true");
+            commands.performPrefixedCommand(console, command + "queuedRewards false");
+            commands.performPrefixedCommand(console, command + "completionToast false");
+            block.setPlacedBy(level, helper.absolutePos(freshPos), state, null, stack);
+            block.setPlacedBy(level, helper.absolutePos(restoredPos), state, null, stack);
+            helper.assertTrue(fresh.isMatching() && !fresh.isClaimOnlyQueuedRewards() && fresh.isSuppressCompletionToast(),
+                    "Fresh submitter placement ignored the server defaults");
+            helper.assertTrue(!restored.isMatching() && restored.isClaimOnlyQueuedRewards() && !restored.isSuppressCompletionToast(),
+                    "Restored submitter lost its saved settings on placement");
+        } finally {
+            commands.performPrefixedCommand(console, command + "matching " + matching);
+            commands.performPrefixedCommand(console, command + "queuedRewards " + queued);
+            commands.performPrefixedCommand(console, command + "completionToast " + toast);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void serverSubmissionRuleBlocksQueueAndMatch(GameTestHelper helper) {
+        withSubmitter(helper, f -> {
+            boolean previous = ServerConfig.get(ServerOption.AUTO_SUBMIT);
+            var server = helper.getLevel().getServer();
+            var console = server.createCommandSourceStack().withSuppressedOutput();
+            String command = "ftbqn config rules autoSubmit ";
+            try {
+                server.getCommands().performPrefixedCommand(console.withPermission(0), command + !previous);
+                helper.assertTrue(ServerConfig.get(ServerOption.AUTO_SUBMIT) == previous,
+                        "A command source below permission level 2 changed a server rule");
+                server.getCommands().performPrefixedCommand(console, command + false);
+                helper.assertTrue(!ServerConfig.get(ServerOption.AUTO_SUBMIT), "Server command did not turn off submission");
+                AEItemKey iron = AEItemKey.of(Items.IRON_INGOT);
+                runWork(f);
+                helper.assertTrue(f.storage.items.get(iron) == 64 && f.data.getProgress(f.task) == 0
+                                && f.entity.getQueuedTaskIds().equals(List.of(f.task.id)),
+                        "Disabled submission deducted manual-queue items, credited progress or changed the queue");
+                helper.assertTrue(f.entity.applyAction(f.owner, 6), "Fixture did not enable matching");
+                runWork(f);
+                helper.assertTrue(f.storage.items.get(iron) == 64 && f.data.getProgress(f.task) == 0,
+                        "Disabled submission deducted matched items or credited progress");
+            } finally {
+                server.getCommands().performPrefixedCommand(console, command + previous);
+            }
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void serverRewardRuleFlushesLedgerAndStopsNewNetworkClaims(GameTestHelper helper) {
+        withSubmitter(helper, f -> {
+            boolean previous = ServerConfig.get(ServerOption.NETWORK_REWARDS);
+            var server = helper.getLevel().getServer();
+            var console = server.createCommandSourceStack().withSuppressedOutput();
+            String command = "ftbqn config rules networkRewards ";
+            try {
+                server.getCommands().performPrefixedCommand(console, command + true);
+                automaticReward(f, false);
+                ItemReward second = new ItemReward(f.file.newID(), f.quest, new ItemStack(Items.EMERALD), 8);
+                configureAutomaticReward(f, second, false);
+                f.storage.capacity = 0;
+                runWork(f);
+                helper.assertTrue(userData(f).getList("FtbqPendingRewards", 10).size() == 1,
+                        "Fixture did not stage one already claimed network reward");
+                server.getCommands().performPrefixedCommand(console, command + false);
+                helper.assertTrue(!ServerConfig.get(ServerOption.NETWORK_REWARDS), "Server command did not turn off reward routing");
+                f.storage.capacity = 100;
+                runWork(f);
+                runWork(f);
+                long gold = f.storage.items.get(AEItemKey.of(Items.GOLD_INGOT));
+                long emerald = f.storage.items.get(AEItemKey.of(Items.EMERALD));
+                helper.assertTrue(userData(f).getList("FtbqPendingRewards", 10).isEmpty()
+                                && gold + emerald == 8,
+                        "Disabled reward routing discarded the ledger or claimed the next reward into AE");
+                helper.assertTrue(gold == 8 ? f.owner.getInventory().contains(new ItemStack(Items.EMERALD))
+                                : f.owner.getInventory().contains(new ItemStack(Items.GOLD_INGOT)),
+                        "Unclaimed automatic reward was not released back to native FTBQ delivery");
+            } finally {
+                server.getCommands().performPrefixedCommand(console, command + previous);
+            }
         });
     }
 
@@ -954,6 +1064,52 @@ public final class SubmitterRegressionGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 100)
+    public static void disabledNetworkRewardsKeepNewChemicalsInLedgerUntilExplicitRetry(GameTestHelper helper) {
+        if (!ChemicalTask.isAvailable()) {
+            helper.succeed();
+            return;
+        }
+        BlockPos cablePos = new BlockPos(2, 1, 1);
+        helper.setBlock(cablePos.east(), AEBlocks.CREATIVE_ENERGY_CELL.block());
+        withSubmitter(helper, 40, f -> {
+            helper.assertTrue(f.entity.getMainNode().isActive(), "Fixture has no powered AE route");
+            ResourceLocation hydrogen = ResourceLocation.fromNamespaceAndPath("mekanism", "hydrogen");
+            var reward = new ChemicalReward(f.file.newID(), f.quest);
+            var registries = helper.getLevel().registryAccess();
+            var tag = new CompoundTag();
+            reward.writeData(tag, registries);
+            tag.putString("chemical", hydrogen.toString());
+            tag.putLong("amount", 2300);
+            reward.readData(tag, registries);
+            AEKey chemical = ChemicalKeys.create(hydrogen, 1);
+            boolean previous = ServerConfig.get(ServerOption.NETWORK_REWARDS);
+            var server = helper.getLevel().getServer();
+            var console = server.createCommandSourceStack().withSuppressedOutput();
+            var commands = server.getCommands();
+            String command = "ftbqn config rules networkRewards ";
+            try {
+                commands.performPrefixedCommand(console, command + false);
+                helper.assertTrue(!ServerConfig.get(ServerOption.NETWORK_REWARDS), "Server command did not turn off reward routing");
+                reward.claim(f.owner, false);
+                helper.assertTrue(f.storage.items.get(chemical) == 0 && ChemicalRewards.hasPending(f.owner),
+                        "A new native chemical reward bypassed the disabled network rule");
+                var owner = f.owner.createCommandSourceStack().withSuppressedOutput();
+                commands.performPrefixedCommand(owner, "nexus_chemical_rewards");
+                commands.performPrefixedCommand(owner, "nexus_chemical_rewards");
+                helper.assertTrue(f.storage.items.get(chemical) == 2300 && !ChemicalRewards.hasPending(f.owner),
+                        "Explicit retry could not deliver the existing chemical ledger exactly once");
+            } finally {
+                commands.performPrefixedCommand(console, command + previous);
+            }
+        });
+        helper.runAfterDelay(1, () -> {
+            var host = PartHelper.placePartHost(null, helper.getLevel(), helper.absolutePos(cablePos));
+            helper.assertTrue(host != null && host.addPart(AEParts.SMART_CABLE.item(AEColor.TRANSPARENT), null, null) != null,
+                    "Could not create the powered AE route");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
     public static void consumingChemicalCreditsOnlyExactExtractedMillibuckets(GameTestHelper helper) {
         if (!ChemicalTask.isAvailable()) {
             helper.assertTrue(TaskTypes.TYPES.containsKey(ChemicalTask.ID),
@@ -1084,9 +1240,13 @@ public final class SubmitterRegressionGameTests {
     }
 
     private static void withSubmitter(GameTestHelper helper, Consumer<Fixture> test) {
+        withSubmitter(helper, 20, test);
+    }
+
+    private static void withSubmitter(GameTestHelper helper, int setupTicks, Consumer<Fixture> test) {
         BlockPos pos = new BlockPos(1, 1, 1);
         helper.setBlock(pos, NexusContent.SUBMITTER.get());
-        helper.runAfterDelay(20, () -> {
+        helper.runAfterDelay(setupTicks, () -> {
             ServerQuestFile previous = ServerQuestFile.INSTANCE;
             SubmitterBlockEntity entity = (SubmitterBlockEntity) helper.getBlockEntity(pos);
             ServerPlayer owner = player(helper);

@@ -21,6 +21,8 @@ import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalReward;
 import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalRewards;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.SubmitterQuestIndex;
 import com.dishanhai.ftb_quest_nexus.NexusContent;
+import com.dishanhai.ftb_quest_nexus.config.ServerConfig;
+import com.dishanhai.ftb_quest_nexus.config.ServerOption;
 import com.dishanhai.ftb_quest_nexus.api.BindingTransfer;
 import dev.ftb.mods.ftbquests.quest.*;
 import dev.ftb.mods.ftbquests.quest.reward.ChoiceReward;
@@ -58,6 +60,7 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
     private final TaskQueue matchedTasks = new TaskQueue();
     private final Map<Long, DeferredAutoClaim> deferredAutoClaims = new LinkedHashMap<>();
     private boolean matching;
+    private boolean restoredUserData;
     private final FtbqRewardBuffer<AEItemKey> pendingRewards = new FtbqRewardBuffer<>();
     private final IManagedGridNode mainNode;
     private String teamIdText = "";
@@ -138,6 +141,15 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
     }
 
     private void status(String key, long... args) { statusKey = key; statusArgs = args; }
+
+    void applyPlacementDefaults() {
+        if (restoredUserData) return;
+        matching = ServerConfig.get(ServerOption.DEFAULT_MATCHING);
+        claimOnlyQueuedRewards = ServerConfig.get(ServerOption.DEFAULT_QUEUED_REWARDS);
+        suppressCompletionToast = !ServerConfig.get(ServerOption.DEFAULT_COMPLETION_TOAST);
+        setChanged();
+    }
+
     public Component getStatusComponent() {
         Object[] args = new Object[statusArgs.length];
         for (int i = 0; i < args.length; i++) args[i] = statusArgs[i];
@@ -255,10 +267,14 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
             index = SubmitterQuestIndex.forFile(file);
         }
         Set<Long> rewardQuests = allRewards ? Set.of() : queuedRewardQuests(file, taskIds, index.revision());
-        List<Task> candidates = matching ? List.of() : queuedCandidates(file, taskIds);
-        QuestWork.ItemKeys itemKeys = new QuestWork.ItemKeys();
-        QuestWork.Submission submission = matching ? QuestWork.match(storage, data, source, itemKeys, index, nextMatchingIndex)
-                : QuestWork.firstSubmission(storage, data, source, itemKeys, candidates, nextQueuedIndex);
+        boolean autoSubmit = ServerConfig.get(ServerOption.AUTO_SUBMIT);
+        List<Task> candidates = matching || !autoSubmit ? List.of() : queuedCandidates(file, taskIds);
+        QuestWork.Submission submission = null;
+        if (autoSubmit) {
+            QuestWork.ItemKeys itemKeys = new QuestWork.ItemKeys();
+            submission = matching ? QuestWork.match(storage, data, source, itemKeys, index, nextMatchingIndex)
+                    : QuestWork.firstSubmission(storage, data, source, itemKeys, candidates, nextQueuedIndex);
+        }
         long newlyMatchedQuestId = 0;
         if (submission != null) {
             Task task = submission.task();
@@ -313,6 +329,7 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
         else if (lastSubmittedChemical > 0) status("worked_chemical", lastSubmittedChemical, lastClaimedRewards);
         else if (lastSubmittedFluid > 0) status("worked_fluid", lastSubmittedFluid, lastClaimedRewards);
         else if (lastSubmitted > 0 || lastClaimedRewards > 0) status("worked", lastSubmitted, lastClaimedRewards);
+        else if (!autoSubmit && (matching || !queue.isEmpty())) status("server_submission_disabled");
         else if (matching) status("match_waiting");
         else if (queue.isEmpty()) status("waiting");
         else if (candidates.stream().allMatch(data::isCompleted)) status("queue_done");
@@ -454,9 +471,10 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
                 continue;
             }
             DeferredAutoClaim deferred = entry.getValue();
-            claimQuestRewards(quest, storage, data, playerId, source, serverLevel, deferred.claimItems());
+            boolean claimItems = deferred.claimItems() && ServerConfig.get(ServerOption.NETWORK_REWARDS);
+            claimQuestRewards(quest, storage, data, playerId, source, serverLevel, claimItems);
             if (!pendingRewards.isEmpty()) return;
-            boolean pendingItems = deferred.claimItems() && quest.rewards().stream().anyMatch(reward ->
+            boolean pendingItems = claimItems && quest.rewards().stream().anyMatch(reward ->
                     canClaimNetworkReward(reward) && data.getClaimType(playerId, reward) == RewardClaimType.CAN_CLAIM);
             boolean pendingExperience = quest.rewards().stream().anyMatch(reward -> isExperiencePending(data, playerId, reward));
             if (pendingItems || quest.quest().canBeRepeated() && pendingExperience) continue;
@@ -497,7 +515,8 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
     }
 
     private boolean scopeIncludesItems(Quest quest) {
-        return matching || !claimOnlyQueuedRewards || quest.getTasks().stream().anyMatch(ConsumableTask::supported);
+        return ServerConfig.get(ServerOption.NETWORK_REWARDS)
+                && (matching || !claimOnlyQueuedRewards || quest.getTasks().stream().anyMatch(ConsumableTask::supported));
     }
 
     private static boolean isExperiencePending(TeamData data, UUID playerId, Reward reward) {
@@ -581,6 +600,7 @@ public final class SubmitterBlockEntity extends BlockEntity implements MenuProvi
     }
 
     public void loadUserData(CompoundTag tag, HolderLookup.Provider registries) {
+        restoredUserData = !tag.isEmpty();
         lastClientState = null;
         teamIdText = tag.getString("teamIdText");
         rewardPlayerIdText = tag.getString("rewardPlayerIdText");

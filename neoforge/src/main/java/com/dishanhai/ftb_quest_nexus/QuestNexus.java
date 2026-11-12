@@ -10,6 +10,8 @@ import com.dishanhai.ftb_quest_nexus.network.FtbqChoiceRewardPackets;
 import com.dishanhai.ftb_quest_nexus.network.NexusNetwork;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
 import com.dishanhai.ftb_quest_nexus.config.ClientUiConfig;
+import com.dishanhai.ftb_quest_nexus.config.NexusConfigCommands;
+import com.dishanhai.ftb_quest_nexus.config.ServerConfig;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.ModContainer;
@@ -33,7 +35,9 @@ public final class QuestNexus {
     public QuestNexus(IEventBus bus, ModContainer container) {
         ChemicalTask.init();
         ChemicalReward.init();
+        bus.addListener(ClientUiConfig::onLoad);
         container.registerConfig(ModConfig.Type.CLIENT, ClientUiConfig.SPEC);
+        container.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);
         NexusContent.BLOCKS.register(bus);
         NexusContent.ITEMS.register(bus);
         NexusContent.BLOCK_ENTITIES.register(bus);
@@ -42,6 +46,7 @@ public final class QuestNexus {
         bus.addListener(QuestNexus::registerCapabilities);
         bus.addListener(QuestNexus::buildCreativeTab);
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> {
+            NexusConfigCommands.register(event.getDispatcher());
             BindingTransfer.register(event.getDispatcher());
             ChemicalRewards.register(event.getDispatcher());
             ChoiceRewardNotices.register(event.getDispatcher(), SubmitterBlockEntity::availableChoiceRewards,

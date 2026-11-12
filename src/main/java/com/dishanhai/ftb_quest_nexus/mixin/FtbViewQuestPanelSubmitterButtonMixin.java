@@ -3,6 +3,7 @@ package com.dishanhai.ftb_quest_nexus.mixin;
 import com.dishanhai.ftb_quest_nexus.client.FtbqSubmitterSelectionClient;
 import com.dishanhai.ftb_quest_nexus.network.NexusNetwork;
 import com.dishanhai.ftb_quest_nexus.client.HeaderButtonLayout;
+import com.dishanhai.ftb_quest_nexus.config.ClientUiConfig;
 import dev.ftb.mods.ftblibrary.icon.Icons;
 import dev.ftb.mods.ftblibrary.ui.Button;
 import dev.ftb.mods.ftblibrary.ui.SimpleButton;
@@ -35,7 +36,7 @@ public abstract class FtbViewQuestPanelSubmitterButtonMixin {
     @Inject(method = "addWidgets", at = @At("TAIL"))
     private void nexus$addQueueButton(CallbackInfo ci) {
         nexus$queueButton = null;
-        if (quest == null) return;
+        if (quest == null || !ClientUiConfig.showSubmitterButton()) return;
         Task target = null;
         for (Task task : quest.getTasks()) {
             if (ConsumableTask.supported(task)) {

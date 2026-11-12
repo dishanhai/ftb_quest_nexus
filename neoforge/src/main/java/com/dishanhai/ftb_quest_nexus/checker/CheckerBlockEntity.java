@@ -10,6 +10,8 @@ import appeng.api.networking.IManagedGridNode;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.util.AECableType;
 import com.dishanhai.ftb_quest_nexus.NexusContent;
+import com.dishanhai.ftb_quest_nexus.config.ServerConfig;
+import com.dishanhai.ftb_quest_nexus.config.ServerOption;
 import com.dishanhai.ftb_quest_nexus.api.BindingTransfer;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.ConsumableTask;
 import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalTask;
@@ -160,7 +162,7 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
         EnergyTarget target = energyTarget;
         if (offered <= 0 || target == null || paused || isRemoved()
                 || !(level instanceof ServerLevel server) || !server.getServer().isSameThread()
-                || !isBoundTeamCurrent()) return 0;
+                || !ServerConfig.get(ServerOption.AUTO_CHECK) || !isBoundTeamCurrent()) return 0;
         ServerQuestFile file = ServerQuestFile.INSTANCE;
         ForgeEnergyTask task = target.task();
         if (file == null || file != task.getQuestFile() || target.revision() != FtbqQuestFileRevision.get(file)
@@ -194,6 +196,7 @@ public final class CheckerBlockEntity extends BlockEntity implements MenuProvide
         energyTaskCount = 0;
         chemicalTaskCount = 0;
         energyTarget = null;
+        if (!ServerConfig.get(ServerOption.AUTO_CHECK)) { status = "server_disabled"; return; }
         if (paused) { status = "paused"; return; }
         ServerQuestFile file = ServerQuestFile.INSTANCE;
         if (file == null) { status = "quests_unavailable"; return; }

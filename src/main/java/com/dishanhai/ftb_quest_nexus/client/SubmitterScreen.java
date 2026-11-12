@@ -1,10 +1,10 @@
 package com.dishanhai.ftb_quest_nexus.client;
 
+import com.dishanhai.ftb_quest_nexus.config.ClientUiConfig;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterMenu;
 import com.dishanhai.sh_better_ui.client.blur.GaussBlur;
 import com.dishanhai.sh_better_ui.client.glass.GlassBlur;
-import com.dishanhai.sh_better_ui.client.glass.GlassPalette;
 import com.dishanhai.sh_better_ui.client.glass.GlassTheme;
 import com.dishanhai.sh_better_ui.client.gui.display.GraphicIcon;
 import com.dishanhai.sh_better_ui.client.gui.scaled.UiButton;
@@ -32,8 +32,10 @@ import net.minecraft.Util;
 
 /** Native Forge presentation of the original submitter panel. Author: dishanhai. */
 public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu> {
+    private final BlockScreenTheme appearance = new BlockScreenTheme();
     private static final String GUI = "gui.ftb_quest_nexus.submitter.";
     private static final int LIST_TOP = 134;
+    private static final SearchIndex<Long> EMPTY_SEARCH_INDEX = new SearchIndex<>(List.of());
     private static final List<ToolbarAction> TOOLBAR_ACTIONS = List.of(
             new ToolbarAction("bind", GraphicIcon.USER),
             new ToolbarAction("clear", GraphicIcon.DELETE),
@@ -49,9 +51,12 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
     private UiButton clearButton;
     private UiButton toastButton;
     private GraphicIcon queueIcon;
+    private GraphicIcon networkOnlineIcon;
+    private GraphicIcon networkOfflineIcon;
     private Component hoveredText;
     private SearchField<Long> search;
-    private SearchIndex<Long> searchIndex = new SearchIndex<>(List.of());
+    private SearchIndex<Long> searchIndex = EMPTY_SEARCH_INDEX;
+    private boolean searchSuggestions;
     private List<SearchIndex.Entry<Long>> indexedEntries = List.of();
     private int ticksSinceSearchRefresh;
     private long indexedQueueRevision = -1;
@@ -81,8 +86,12 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
         super.init();
         GlassBlur.warmUp();
         queueIcon = NexusIcons.available(NexusIcons.QUEUE, null);
+        networkOnlineIcon = NexusIcons.available(NexusIcons.NETWORK_ONLINE, null);
+        networkOfflineIcon = NexusIcons.available(NexusIcons.NETWORK_OFFLINE, null);
+        searchSuggestions = ClientUiConfig.searchSuggestions();
         search = addRenderableWidget(new SearchField<>(font, leftPos + imageWidth / 2,
-                topPos + 4, imageWidth / 2 - 10, 18, searchIndex));
+                topPos + 4, imageWidth / 2 - 10, 18, searchSuggestions ? searchIndex : EMPTY_SEARCH_INDEX));
+        if (!searchSuggestions) search.setTooltip(null);
         search.setMessage(Component.translatable(GUI + "search"));
         search.setHint(Component.translatable(GUI + "search"));
         search.setValue(query);
@@ -150,7 +159,7 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
         if (!queueChanged && entries.equals(indexedEntries)) return;
         indexedEntries = List.copyOf(entries);
         searchIndex = new SearchIndex<>(indexedEntries);
-        search.setIndex(searchIndex);
+        if (searchSuggestions) search.setIndex(searchIndex);
         if (!search.getValue().isBlank() || menu.isFiltering()) applySearch();
     }
 
@@ -189,45 +198,52 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
     @Override
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         if (menu.submitter == null || menu.submitter.isRemoved()) return;
-        GlassTheme theme = GlassTheme.GLASS;
+        GlassTheme theme = appearance.current().panel();
         theme.rootShadow(graphics, leftPos, topPos, imageWidth, imageHeight);
         theme.backdrop(graphics, leftPos, topPos, imageWidth, imageHeight);
-        theme.box(graphics, leftPos, topPos, imageWidth, imageHeight, GlassPalette.ROOT_EDGE, theme.panelBg);
+        theme.box(graphics, leftPos, topPos, imageWidth, imageHeight, theme.colors.ROOT_EDGE, theme.panelBg);
         SubmitterBlockEntity be = menu.submitter;
         int contentWidth = imageWidth - 20;
         int titleX = 10;
         if (queueIcon != null) {
-            queueIcon.draw(graphics, leftPos + titleX, topPos + 6, 1, GlassPalette.TEXT_HEAD);
+            queueIcon.draw(graphics, leftPos + titleX, topPos + 6, 1, theme.colors.TEXT_HEAD);
             titleX += GraphicIcon.PIXELS + 4;
         }
-        row(graphics, mouseX, mouseY, titleX, 8, imageWidth / 2 - titleX - 6, title, GlassPalette.TEXT_HEAD);
-        row(graphics, mouseX, mouseY, 10, 22, contentWidth,
-                Component.translatable(GUI + (be.isOnline() ? "online" : "offline")), GlassPalette.TEXT);
+        row(graphics, mouseX, mouseY, titleX, 8, imageWidth / 2 - titleX - 6, title, theme.colors.TEXT_HEAD);
+        GraphicIcon networkIcon = be.isOnline() ? networkOnlineIcon : networkOfflineIcon;
+        int networkInset = 0;
+        if (networkIcon != null) {
+            graphics.blit(networkIcon.texture(), leftPos + 10, topPos + 23, 10, 10,
+                    0, 0, GraphicIcon.PIXELS, GraphicIcon.PIXELS, GraphicIcon.PIXELS, GraphicIcon.PIXELS);
+            networkInset = 14;
+        }
+        row(graphics, mouseX, mouseY, 10 + networkInset, 22, contentWidth - networkInset,
+                Component.translatable(GUI + (be.isOnline() ? "online" : "offline")), theme.colors.TEXT);
         row(graphics, mouseX, mouseY, 10, 34, contentWidth,
-                Component.translatable(GUI + "status", be.getStatusComponent()), GlassPalette.TEXT);
+                Component.translatable(GUI + "status", be.getStatusComponent()), theme.colors.TEXT);
         row(graphics, mouseX, mouseY, 10, 46, contentWidth,
-                Component.translatable(GUI + "uuid", identifier(be.getSubmitterIdText())), GlassPalette.TEXT_MUTED);
+                Component.translatable(GUI + "uuid", identifier(be.getSubmitterIdText())), theme.colors.TEXT_MUTED);
         row(graphics, mouseX, mouseY, 10, 58, contentWidth,
-                Component.translatable(GUI + "team", identifier(be.getTeamIdText())), GlassPalette.TEXT_MUTED);
+                Component.translatable(GUI + "team", identifier(be.getTeamIdText())), theme.colors.TEXT_MUTED);
         row(graphics, mouseX, mouseY, 10, 70, contentWidth,
-                Component.translatable(GUI + "player", identifier(be.getRewardPlayerIdText())), GlassPalette.TEXT_MUTED);
+                Component.translatable(GUI + "player", identifier(be.getRewardPlayerIdText())), theme.colors.TEXT_MUTED);
         row(graphics, mouseX, mouseY, 10, 84, contentWidth,
                 Component.translatable(GUI + "summary.resources", be.getQueueSize(), be.getLastSubmitted(),
-                        be.getLastSubmittedFluid(), be.getLastClaimedRewards()), GlassPalette.TEXT);
+                        be.getLastSubmittedFluid(), be.getLastClaimedRewards()), theme.colors.TEXT);
         row(graphics, mouseX, mouseY, 10, 98, contentWidth,
                 Component.translatable(GUI + (be.isSuppressCompletionToast() ? "toast.suppressed" : "toast.normal")),
-                GlassPalette.TEXT);
+                theme.colors.TEXT);
         row(graphics, mouseX, mouseY, 10, 110, contentWidth,
                 Component.translatable(GUI + (be.isMatching() ? "claim.matched"
                         : be.isClaimOnlyQueuedRewards() ? "claim.queued" : "claim.all")),
-                GlassPalette.TEXT);
+                theme.colors.TEXT);
         int amountX = imageWidth * 3 / 5;
         row(graphics, mouseX, mouseY, 10, 122, amountX - 14,
                 search.getValue().isBlank() ? Component.translatable(GUI + (be.isMatching() ? "match.goals" : "goals"))
                         : Component.translatable(GUI + "search.results", menu.getMatchedCount(), be.getQueueSize()),
-                GlassPalette.TEXT_MUTED);
+                theme.colors.TEXT_MUTED);
         row(graphics, mouseX, mouseY, amountX, 122, imageWidth - amountX - 10,
-                Component.translatable(GUI + "progress"), GlassPalette.TEXT_MUTED);
+                Component.translatable(GUI + "progress"), theme.colors.TEXT_MUTED);
         int rowHeight = queueRowHeight();
         theme.box(graphics, leftPos + 8, topPos + LIST_TOP, imageWidth - 16,
                 rowHeight * SubmitterMenu.PAGE_SIZE, theme.cellEdge, theme.boxBg);
@@ -235,7 +251,7 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
             row(graphics, mouseX, mouseY, 14, LIST_TOP + 8, imageWidth - 28,
                     Component.translatable(GUI + (!search.getValue().isBlank() ? "search.empty"
                             : be.isMatching() ? "match.empty" : "empty")),
-                    GlassPalette.TEXT_MUTED);
+                    theme.colors.TEXT_MUTED);
         } else {
             for (int i = 0; i < menu.getRows().size(); i++) {
                 drawGoal(graphics, mouseX, mouseY, amountX, LIST_TOP + i * rowHeight,
@@ -243,7 +259,7 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
             }
         }
         graphics.drawCenteredString(font, Component.translatable(GUI + "page", menu.getPage() + 1,
-                menu.getPageCount()), leftPos + imageWidth / 2, topPos + imageHeight - 12, GlassPalette.TEXT_MUTED);
+                menu.getPageCount()), leftPos + imageWidth / 2, topPos + imageHeight - 12, theme.colors.TEXT_MUTED);
     }
 
     private int queueRowHeight() {
@@ -252,7 +268,8 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
 
     private void drawGoal(GuiGraphics graphics, int mouseX, int mouseY, int amountX,
                           int y, int rowHeight, SubmitterMenu.QueueRow goal) {
-        int color = goal.completed() ? 0xFF8CD6B1 : GlassPalette.TEXT;
+        var frame = appearance.current();
+        int color = goal.completed() ? frame.completeText() : frame.panel().colors.TEXT;
         var file = dev.ftb.mods.ftbquests.client.ClientQuestFile.INSTANCE;
         var task = file == null || !goal.valid() ? null : file.getTask(goal.taskId());
         Component target = task == null ? goal.title() : Component.translatable(GUI + "target",
@@ -367,9 +384,11 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
         updateButtons();
         var suggestions = search.suggestionArea(height);
         boolean overSuggestions = suggestions.filter(area -> area.contains(mouseX, mouseY)).isPresent();
-        super.render(graphics, overSuggestions ? -1 : mouseX, overSuggestions ? -1 : mouseY, partialTick);
+        var frame = appearance.resolve(ClientUiConfig.submitterTheme());
+        frame.paint(() -> super.render(graphics, overSuggestions ? -1 : mouseX,
+                overSuggestions ? -1 : mouseY, partialTick));
         if (suggestions.isPresent()) {
-            GaussBlur.deferTopLayer(this, top -> search.renderSuggestions(top, mouseX, mouseY, height));
+            GaussBlur.deferTopLayer(this, top -> frame.paint(() -> search.renderSuggestions(top, mouseX, mouseY, height)));
         } else if (hoveredText != null) {
             setTooltipForNextRenderPass(hoveredText);
         }

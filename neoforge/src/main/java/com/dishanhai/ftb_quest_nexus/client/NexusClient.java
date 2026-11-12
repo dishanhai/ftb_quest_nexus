@@ -15,9 +15,11 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.event.RenderTooltipEvent;
+import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
 
 /** Author: dishanhai. Client subscribers are isolated from the common entry point. */
@@ -35,6 +37,9 @@ public final class NexusClient {
 
     @SubscribeEvent
     public static void setup(FMLClientSetupEvent event) {
+        ModList.get().getModContainerById(QuestNexus.MOD_ID).ifPresent(container ->
+                container.registerExtensionPoint(IConfigScreenFactory.class,
+                        (ignored, parent) -> new NexusConfigScreen(parent)));
         event.enqueueWork(() -> {
             if (ChemicalTask.isMekanismAvailable()) {
                 ChemicalPicker.register();

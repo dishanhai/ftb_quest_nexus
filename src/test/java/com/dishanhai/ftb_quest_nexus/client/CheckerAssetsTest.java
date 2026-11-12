@@ -137,8 +137,11 @@ class CheckerAssetsTest {
         JsonObject light = glow.getAsJsonObject(glow.has("forge_data") ? "forge_data" : "neoforge_data");
         assertEquals(15, light.get("block_light").getAsInt());
         assertFalse(light.get("ambient_occlusion").getAsBoolean());
-        assertEquals("ftb_quest_nexus:block/ftbq_ae_checker",
-                json("models/item/ftbq_ae_checker.json").get("parent").getAsString());
+        String itemPath = "items/ftbq_ae_checker.json";
+        String model = getClass().getClassLoader().getResource(ROOT + itemPath) == null
+                ? json("models/item/ftbq_ae_checker.json").get("parent").getAsString()
+                : json(itemPath).getAsJsonObject("model").get("model").getAsString();
+        assertEquals("ftb_quest_nexus:block/ftbq_ae_checker", model);
     }
 
     @Test

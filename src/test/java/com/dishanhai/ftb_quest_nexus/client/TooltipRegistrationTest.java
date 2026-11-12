@@ -27,7 +27,7 @@ class TooltipRegistrationTest {
                     public MethodVisitor visitMethod(int access, String name, String descriptor,
                                                      String signature, String[] exceptions) {
                         List<String> calls = switch (name) {
-                            case "render" -> renderCalls;
+                            case "render", "extractRenderState" -> renderCalls;
                             case "setTooltipForNextRenderPass" -> tooltipCalls;
                             default -> null;
                         };
@@ -45,8 +45,14 @@ class TooltipRegistrationTest {
             assertTrue(renderCalls.contains("deferTopLayer"), screen + " draws completion before blur");
             assertFalse(renderCalls.contains("renderSuggestions"), screen + " draws completion inline");
             assertFalse(renderCalls.contains("renderTooltip"), screen + " bypasses tooltip arbitration");
-            assertTrue(renderCalls.contains("setTooltipForNextRenderPass"), screen + " loses row tooltips");
-            assertEquals(List.of("suggestionArea", "isEmpty", "setTooltipForNextRenderPass"), tooltipCalls, screen);
+            if (renderCalls.contains("setTooltipForNextFrame")) {
+                int clear = renderCalls.indexOf("nexus$setDeferredTooltip");
+                assertTrue(clear >= 0 && clear < renderCalls.indexOf("deferTopLayer"),
+                        screen + " must clear the queued tooltip before deferring suggestions");
+            } else {
+                assertTrue(renderCalls.contains("setTooltipForNextRenderPass"), screen + " loses row tooltips");
+                assertEquals(List.of("suggestionArea", "isEmpty", "setTooltipForNextRenderPass"), tooltipCalls, screen);
+            }
         }
     }
 

@@ -9,6 +9,8 @@ final class NexusIcons {
     static final GraphicIcon QUEUE = icon("queue");
     static final GraphicIcon REWARD = icon("reward");
     static final GraphicIcon TASK = icon("task");
+    static final GraphicIcon NETWORK_ONLINE = icon("status_ready");
+    static final GraphicIcon NETWORK_OFFLINE = icon("status_failed");
 
     private NexusIcons() {}
 
