@@ -26,7 +26,7 @@ wrapper 使用 Gradle 9.2.1，不使用上层 Forge 的 Gradle 8.8。首次构�
 
 默认外部 UI 路径：`../../SH-Better-UI/neoforge/build/libs/sh_better_ui-neoforge-1.21.1-1.0.6.jar`，可用 `-PshBetterUiJar=<jar>` 覆写。
 
-正式产物：`build/libs/ftb_quest_nexus-neoforge-1.21.1-1.1.0.jar`。游戏中同时安装对应的 SH-Better-UI NeoForge jar 及所列运行前置；不要安装 sources jar 或 Forge 1.20.1 jar。
+正式产物：`build/libs/ftb_quest_nexus-neoforge-1.21.1-1.2.0.jar`。游戏中同时安装对应的 SH-Better-UI NeoForge jar 及所列运行前置；不要安装 sources jar 或 Forge 1.20.1 jar。
 
 ## FTBQ 玻璃主题覆盖
 

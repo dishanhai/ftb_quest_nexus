@@ -19,9 +19,14 @@ repositories {
     }
 }
 
-// Develop against the separate UI project; install its release jar as a prerequisite.
-def shBetterUiJar = file(findProperty('shBetterUiJar') ?:
-        "../SH-Better-UI/build/libs/sh_better_ui-${sh_better_ui_version}-dev.jar")
+def shBetterUiName = "sh_better_ui-${sh_better_ui_version}-dev.jar"
+def shBetterUiLocal = file("libs/${shBetterUiName}")
+def shBetterUiJar = file(findProperty('shBetterUiJar') ?: (shBetterUiLocal.isFile()
+        ? shBetterUiLocal : "../SH-Better-UI/build/libs/${shBetterUiName}"))
+def shCommonLibName = "sh-common-lib-forge-${minecraft_version}-${sh_common_lib_version}.jar"
+def shCommonLibLocal = file("libs/${shCommonLibName}")
+def shCommonLibJar = file(findProperty('shCommonLibJar') ?: (shCommonLibLocal.isFile()
+        ? shCommonLibLocal : "../SH-Common-Lib/forge/build/libs/${shCommonLibName}"))
 dependencies {
     def fluxNetworks = 'curse.maven:flux-networks-248020:5234697'
     compileOnly(fg.deobf(fluxNetworks)) { transitive = false }
@@ -35,6 +40,7 @@ dependencies {
         implementation(fg.deobf("local:${it}")) { transitive = false }
     }
     implementation files(shBetterUiJar)
+    if (shCommonLibJar.isFile()) compileOnly files(shCommonLibJar)
     runtimeOnly files('libs/runtime/kotlinforforge-4.12.0-all.jar')
     compileOnly files('libs/Jade-1.20.1-Forge-11.13.3.jar')
     testImplementation platform('org.junit:junit-bom:5.10.2')
@@ -46,7 +52,10 @@ tasks.withType(Test).configureEach { useJUnitPlatform() }
 tasks.named('compileJava') {
     doFirst {
         if (!shBetterUiJar.isFile()) {
-            throw new GradleException('Build SH-Better-UI devJar first, or set -PshBetterUiJar=<dev-jar>.')
+            throw new GradleException("SH-Better-UI dev jar not found: ${shBetterUiJar}. Place it in libs, build SH-Better-UI, or set -PshBetterUiJar=<dev-jar>.")
+        }
+        if (findProperty('shCommonLibJar') && !shCommonLibJar.isFile()) {
+            throw new GradleException("SH-Common-Lib jar not found: ${shCommonLibJar}.")
         }
     }
 }

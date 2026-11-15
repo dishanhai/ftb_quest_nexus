@@ -40,9 +40,13 @@ set "BUILD_RESULT=%ERRORLEVEL%"
 
 :finish
 popd
-if "%BUILD_RESULT%"=="0" exit /b 0
+if "%BUILD_RESULT%"=="0" (
+    echo Build succeeded.
+) else (
+    echo Build failed. See the output above.
+)
 
-@rem Explorer opens batch files with cmd.exe /c ""<path>" ".
+@rem Keep the result visible when Explorer launches the batch file.
 set "WRAPPER_PATH=%~f0"
 setlocal EnableDelayedExpansion
 set "EXPLORER_COMMAND=""!WRAPPER_PATH!" ""

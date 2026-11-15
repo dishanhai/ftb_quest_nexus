@@ -37,13 +37,23 @@ sourceSets.test {
 tasks.named('compileJava') { source sharedJava }
 tasks.named('sourcesJar') { from sharedJava }
 
-def shBetterUiJar = file(findProperty('shBetterUiJar') ?: "../../SH-Better-UI/neoforge/build/libs/sh_better_ui-neoforge-${minecraft_version}-${sh_better_ui_version}.jar")
+def shBetterUiName = "sh_better_ui-neoforge-${minecraft_version}-${sh_better_ui_version}.jar"
+def shBetterUiLocal = file("libs/${shBetterUiName}")
+def shBetterUiJar = file(findProperty('shBetterUiJar') ?: (shBetterUiLocal.isFile()
+        ? shBetterUiLocal : "../../SH-Better-UI/neoforge/build/libs/${shBetterUiName}"))
+def shCommonLibName = "sh-common-lib-neoforge-${minecraft_version}-${sh_common_lib_version}.jar"
+def shCommonLibLocal = file("libs/${shCommonLibName}")
+def shCommonLibJar = file(findProperty('shCommonLibJar') ?: (shCommonLibLocal.isFile()
+        ? shCommonLibLocal : "../../SH-Common-Lib/neoforge/build/libs/${shCommonLibName}"))
 def chemicalMods = files('libs/Mekanism-1.21.1-10.7.19.85.jar', 'libs/Applied-Mekanistics-1.6.3.jar')
 
 tasks.named('compileJava') {
     doFirst {
         if (!shBetterUiJar.isFile()) {
-            throw new GradleException('Build SH-Better-UI/neoforge first, or set -PshBetterUiJar=<neoforge-jar>.')
+            throw new GradleException("SH-Better-UI jar not found: ${shBetterUiJar}. Place it in neoforge/libs, build SH-Better-UI/neoforge, or set -PshBetterUiJar=<neoforge-jar>.")
+        }
+        if (findProperty('shCommonLibJar') && !shCommonLibJar.isFile()) {
+            throw new GradleException("SH-Common-Lib jar not found: ${shCommonLibJar}.")
         }
     }
 }
@@ -55,6 +65,7 @@ dependencies {
             'libs/architectury-13.0.11-neoforge.jar',
             'libs/guideme-21.1.22.jar')
     implementation files(shBetterUiJar)
+    if (shCommonLibJar.isFile()) compileOnly files(shCommonLibJar)
     compileOnly files('libs/Jade-1.21.1-NeoForge-15.10.6.jar')
     compileOnly chemicalMods
     if (providers.gradleProperty('mekanismRuntime').isPresent()) runtimeOnly chemicalMods

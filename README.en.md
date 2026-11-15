@@ -63,7 +63,7 @@ Run `gradlew.bat build` from the repository root to build Forge and then NeoForg
 
 Add `--offline` if the local dependency cache is complete. On a new machine, populate the ForgeGradle, mappings, and test dependency caches. The Forge wrapper uses Gradle 8.8.
 
-Install the release artifact at `build/libs/ftb_quest_nexus-1.1.0.jar` and the release version of SH-Better-UI.
+Install the release artifact at `build/libs/ftb_quest_nexus-1.2.0.jar` and the release version of SH-Better-UI.
 
 Run dedicated server GameTests with the following command.
 

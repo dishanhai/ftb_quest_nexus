@@ -42,6 +42,15 @@ class TooltipRegistrationTest {
                     }
                 }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
             }
+            if (renderCalls.contains("nextStratum")) {
+                int clear = renderCalls.indexOf("nexus$setDeferredTooltip");
+                int foreground = renderCalls.indexOf("nextStratum");
+                assertTrue(clear >= 0 && clear < foreground, screen + " must clear the tooltip below completion");
+                assertTrue(foreground < renderCalls.lastIndexOf("paint"),
+                        screen + " must extract suggestions in a higher stratum");
+                assertTrue(renderCalls.contains("setTooltipForNextFrame"), screen + " loses row tooltips");
+                continue;
+            }
             assertTrue(renderCalls.contains("deferTopLayer"), screen + " draws completion before blur");
             assertFalse(renderCalls.contains("renderSuggestions"), screen + " draws completion inline");
             assertFalse(renderCalls.contains("renderTooltip"), screen + " bypasses tooltip arbitration");
@@ -83,6 +92,12 @@ class TooltipRegistrationTest {
                     };
                 }
             }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        }
+        // The 26.x extractor queues its own tooltips without a mod listener.
+        if (getClass().getResource("MachineSearchField.class") != null) {
+            assertTrue(priorities.isEmpty());
+            assertTrue(registrations.isEmpty());
+            return;
         }
         assertEquals(List.of("HIGHEST"), priorities);
         assertEquals(1, registrations.size());

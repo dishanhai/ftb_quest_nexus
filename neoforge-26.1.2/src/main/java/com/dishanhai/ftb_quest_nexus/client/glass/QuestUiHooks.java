@@ -1,7 +1,6 @@
 package com.dishanhai.ftb_quest_nexus.client.glass;
 
 import com.dishanhai.ftb_quest_nexus.config.ClientUiConfig;
-import com.dishanhai.sh_better_ui.client.glass.GlassBlur;
 import dev.ftb.mods.ftblibrary.client.gui.widget.BaseScreen;
 import dev.ftb.mods.ftblibrary.client.gui.IScreenWrapper;
 import net.minecraft.client.gui.screens.Screen;
@@ -21,7 +20,7 @@ public final class QuestUiHooks {
 
     public static void opened(BaseScreen screen) {
         THEMES.remove(screen);
-        if (theme(screen) != null) GlassBlur.warmUp();
+        theme(screen);
     }
 
     public static QuestGlassTheme theme(BaseScreen screen) {
@@ -50,7 +49,4 @@ public final class QuestUiHooks {
                 ? new QuestGlassTheme(ClientUiConfig.OPACITY.get(), ClientUiConfig.BLUR_RADIUS.get()) : null);
     }
 
-    public static boolean isGlass(Screen screen) {
-        return screen instanceof IScreenWrapper wrapper && theme(wrapper.getGui()) != null;
-    }
 }

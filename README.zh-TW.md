@@ -63,7 +63,7 @@ $env:TMP = 'C:\jtmp'
 
 本機相依套件快取完整時可加 `--offline`。更換機器後需要取得 ForgeGradle、映射及測試相依套件快取。Forge wrapper 使用 Gradle 8.8。
 
-正式產物：`build/libs/ftb_quest_nexus-1.1.0.jar`。不要安裝 `-sources.jar` 或開發用的 UI `-dev.jar`。
+正式產物：`build/libs/ftb_quest_nexus-1.2.0.jar`。不要安裝 `-sources.jar` 或開發用的 UI `-dev.jar`。
 
 獨立伺服器端測試：
 

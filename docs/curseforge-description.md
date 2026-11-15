@@ -12,7 +12,7 @@
 
 **FTB Quest Nexus** connects **FTB Quests** to **Applied Energistics 2 (AE2)**. The submitter takes resources from ME storage to advance consumable tasks. The checker completes stock-detection tasks without taking resources and accepts FE for energy tasks. An optional client theme adds frosted glass to the quest book.
 
-**Supported platforms** · Minecraft **1.20.1 Forge** and **1.21.1 NeoForge**.
+**Supported platforms** · Minecraft **1.20.1 Forge**, **1.21.1 NeoForge**, and **26.1.2 NeoForge**.
 
 ### AE Auto Submitter
 
@@ -33,15 +33,16 @@
 - Feed **Forge Energy (FE)** into the checker to advance eligible FTB Quests energy goals, even without an ME connection. On **Forge**, you can also join an optional **Flux Networks** network directly from the checker menu. On **NeoForge**, connect an FE output such as an **Applied Flux** Flux Accessor in output mode or a **Flux Networks** Flux Point.
 - Craft with a **book**, **ME Interface**, and **Calculation Processor**, in that order down a crafting column.
 
-### Mekanism Chemicals (NeoForge 1.21.1)
+### Mekanism Chemicals (NeoForge)
 
 - With **Mekanism**, modpacks can configure chemical tasks and rewards. Players can click a chemical task in the quest book to check or submit chemicals from tanks in their inventory, according to the task's settings.
 - Add **Applied Mekanistics** for automatic submission of consumable chemical goals, read-only checks of non-consumable chemical goals, and delivery of chemical rewards to ME storage.
 - If ME cannot accept the full reward, the remaining amount stays pending for that player. Open it from chat or with `/nexus_chemical_rewards` to retry or claim the remainder in tanks.
+- On Minecraft 26.1.2, use the matching Version Locked community ports of Mekanism and Applied Mekanistics for these optional integrations.
 
 ### Optional Frosted-Glass Theme
 
-The quest book uses the original appearance by default. To enable glass, edit `config/ftb_quest_nexus-client.toml`, then reopen the quest book.
+The quest book uses the original appearance by default. To enable glass, use the mod configuration screen or edit `config/ftb_quest_nexus-client.toml`, then reopen the quest book.
 
 ```toml
 [ftbqUi]
@@ -54,18 +55,20 @@ The theme covers the quest canvas, chapter sidebar, toolbar, quest details, and 
 
 ### Installation and Dependencies
 
-Use **Java 21**. For multiplayer, install the same Nexus build and its required mods on the server and on each client.
+Use **Java 21** for Minecraft 1.20.1 and 1.21.1, or **Java 25** for 26.1.2. For multiplayer, install the same Nexus build and its required mods on the server and on each client.
 
-| Minimum version | Forge 1.20.1 | NeoForge 1.21.1 |
-| --- | --- | --- |
-| Mod loader | Forge 47.4.16 | NeoForge 21.1.251 |
-| Applied Energistics 2 | 15.4.10 | 19.2.18 |
-| FTB Quests | 2001.4.22 | 2101.1.36 |
-| FTB Teams | 2001.3.2 | 2101.1.11 |
-| FTB Library | 2001.2.13 | 2101.1.37 |
-| SH-Better-UI | 1.0.6 | 1.0.6 |
+| Minimum version | Forge 1.20.1 | NeoForge 1.21.1 | NeoForge 26.1.2 |
+| --- | --- | --- | --- |
+| Mod loader | Forge 47.4.16 | NeoForge 21.1.251 | NeoForge 26.1.2.126 |
+| Applied Energistics 2 | 15.4.10 | 19.2.18 | 26.1.12-beta |
+| FTB Quests | 2001.4.22 | 2101.1.36 | 26.1.2.10 |
+| FTB Teams | 2001.3.2 | 2101.1.11 | 26.1.2.5 |
+| FTB Library | 2001.2.13 | 2101.1.37 | 26.1.2.12 |
+| SH-Better-UI | 1.0.6 | 1.0.6 | 1.0.7-alpha.8 |
 
-Also install **Architectury API** for the FTB mods, **GuideME** for AE2, and the loader-specific **Kotlin for Forge** runtime for SH-Better-UI.
+Also install **Architectury API** for the FTB mods on 1.20.1 and 1.21.1, **GuideME** for AE2, and the loader-specific **Kotlin for Forge** runtime for SH-Better-UI.
+
+The 26.1.2 build uses Kotlin for Forge **6.2.0**. Its multiplayer and old-world testing is still pending.
 
 **Optional** · Jade for block tooltips, JEI for recipes and item lookup, and the energy and chemical integrations listed above.
 
@@ -75,7 +78,7 @@ Also install **Architectury API** for the FTB mods, **GuideME** for AE2, and the
 
 **FTB Quest Nexus** 将 **FTB Quests** 与 **Applied Energistics 2（AE2）** 接入同一套任务流程。提交器从 ME 库存扣除资源推进消耗型任务，检查器读取库存完成检测型任务，也能接收 FE 推进能量任务。任务书可选用毛玻璃主题。
 
-**支持平台** · Minecraft **1.20.1 Forge** 和 **1.21.1 NeoForge**。
+**支持平台** · Minecraft **1.20.1 Forge**、**1.21.1 NeoForge** 和 **26.1.2 NeoForge**。
 
 ### AE 自动提交器
 
@@ -96,15 +99,16 @@ Also install **Architectury API** for the FTB mods, **GuideME** for AE2, and the
 - 向检查器输入 **FE** 可推进符合条件的 FTB Quests 能量目标，断开 ME 网络时也能提交能量。**Forge** 可从检查器菜单直接加入 **Flux Networks** 通量网络。**NeoForge** 可接入 FE 输出设备，例如输出模式下的 **Applied Flux** 通量访问点，或 **Flux Networks** 通量网络接入点。
 - 合成时在工作台同一列从上到下放入**书**、**ME 接口**和**运算处理器**。
 
-### Mekanism 化学品联动（NeoForge 1.21.1）
+### Mekanism 化学品联动（NeoForge）
 
 - 安装 **Mekanism** 后，整合包可配置化学品任务和奖励。点击任务书中的化学品目标，可按任务设置检测或消耗背包储罐中的化学品。
 - 同时安装 **Applied Mekanistics** 后，可从 ME 自动提交消耗型化学品目标、只读检查非消耗型化学品目标，并优先将化学品奖励存入 ME。
 - ME 未收完的化学品会留在玩家的待领取记录中。点击聊天提示或执行 `/nexus_chemical_rewards`，可重试回网或将余量罐装领取。
+- Minecraft 26.1.2 的可选化学品联动使用对应版本的 Mekanism 和 Applied Mekanistics Version Locked 社区移植版。
 
 ### 可选的任务书毛玻璃主题
 
-默认保留原版外观。编辑客户端的 `config/ftb_quest_nexus-client.toml` 后，重新打开任务书即可应用。
+默认保留原版外观。可在模组配置界面设置，或编辑客户端的 `config/ftb_quest_nexus-client.toml`，然后重新打开任务书应用。
 
 ```toml
 [ftbqUi]
@@ -117,22 +121,38 @@ blurRadius = 8 # 0 至 16，设为 0 关闭模糊
 
 ### 安装与依赖
 
-使用 **Java 21**。联机时，服务端和客户端均需安装同一构建的 Nexus 及其必需前置。
+Minecraft 1.20.1 和 1.21.1 使用 **Java 21**，26.1.2 使用 **Java 25**。联机时，服务端和客户端均需安装同一构建的 Nexus 及其必需前置。
 
-| 最低版本 | Forge 1.20.1 | NeoForge 1.21.1 |
-| --- | --- | --- |
-| 模组加载器 | Forge 47.4.16 | NeoForge 21.1.251 |
-| Applied Energistics 2 | 15.4.10 | 19.2.18 |
-| FTB Quests | 2001.4.22 | 2101.1.36 |
-| FTB Teams | 2001.3.2 | 2101.1.11 |
-| FTB Library | 2001.2.13 | 2101.1.37 |
-| SH-Better-UI | 1.0.6 | 1.0.6 |
+| 最低版本 | Forge 1.20.1 | NeoForge 1.21.1 | NeoForge 26.1.2 |
+| --- | --- | --- | --- |
+| 模组加载器 | Forge 47.4.16 | NeoForge 21.1.251 | NeoForge 26.1.2.126 |
+| Applied Energistics 2 | 15.4.10 | 19.2.18 | 26.1.12-beta |
+| FTB Quests | 2001.4.22 | 2101.1.36 | 26.1.2.10 |
+| FTB Teams | 2001.3.2 | 2101.1.11 | 26.1.2.5 |
+| FTB Library | 2001.2.13 | 2101.1.37 | 26.1.2.12 |
+| SH-Better-UI | 1.0.6 | 1.0.6 | 1.0.7-alpha.8 |
 
-另需安装 FTB 系列所需的 **Architectury API**、AE2 所需的 **GuideME**，以及 SH-Better-UI 所需的对应平台 **Kotlin for Forge**。
+另需安装 1.20.1 和 1.21.1 的 FTB 系列所需的 **Architectury API**、AE2 所需的 **GuideME**，以及 SH-Better-UI 所需的对应平台 **Kotlin for Forge**。
+
+26.1.2 构建使用 Kotlin for Forge **6.2.0**，多人及旧存档验收仍待完成。
 
 **可选联动** · Jade 方块信息提示、JEI 配方与物品查询，以及上文的能量和化学品联动。
 
 ---
+
+## Changelog — v1.2.0
+
+- Added a separate Minecraft 26.1.2 NeoForge build.
+- Choose independent SH-Better-UI themes for the submitter and checker, including global and resource-pack themes.
+- Configure quest-book appearance, the quest-details submitter entry, and search suggestions in game.
+- Manage server automation rules and new-submitter defaults with `/ftbqn config`.
+
+## v1.2.0 更新日志（简体中文）
+
+- 新增独立的 Minecraft 26.1.2 NeoForge 构建。
+- 分别为提交器和检查器选择 SH-Better-UI 主题，支持跟随全局主题及资源包主题。
+- 在游戏中设置任务书外观、任务详情页的提交器入口和搜索补全。
+- 使用 `/ftbqn config` 管理服务端自动化规则和新提交器的默认设置。
 
 ## Changelog — v1.1.0
 

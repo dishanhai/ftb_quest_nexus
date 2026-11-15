@@ -8,12 +8,8 @@ import com.dishanhai.ftb_quest_nexus.config.ClientUiConfig;
 import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalTask;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
 import com.dishanhai.ftb_quest_nexus.submitter.SubmitterMenu;
-import com.dishanhai.sh_better_ui.client.blur.GaussBlur;
-import com.dishanhai.sh_better_ui.client.glass.GlassBlur;
-import com.dishanhai.sh_better_ui.client.glass.GlassTheme;
 import com.dishanhai.sh_better_ui.client.gui.display.GraphicIcon;
 import com.dishanhai.sh_better_ui.client.gui.scaled.UiButton;
-import com.dishanhai.sh_better_ui.client.gui.search.SearchField;
 import com.dishanhai.sh_better_ui.client.gui.search.SearchIndex;
 import com.dishanhai.ftb_quest_nexus.network.SubmitterSearchPacket;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
@@ -59,7 +55,7 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
     private Component hoveredText;
     private int panelWidth;
     private int panelHeight;
-    private SearchField<Long> search;
+    private MachineSearchField<Long> search;
     private SearchIndex<Long> searchIndex = EMPTY_SEARCH_INDEX;
     private boolean searchSuggestions;
     private List<SearchIndex.Entry<Long>> indexedEntries = List.of();
@@ -89,12 +85,11 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
         super.init();
         leftPos = (width - panelWidth) / 2;
         topPos = (height - panelHeight) / 2;
-        GlassBlur.warmUp();
         queueIcon = NexusIcons.available(NexusIcons.QUEUE, null);
         networkOnlineIcon = NexusIcons.available(NexusIcons.NETWORK_ONLINE, null);
         networkOfflineIcon = NexusIcons.available(NexusIcons.NETWORK_OFFLINE, null);
         searchSuggestions = ClientUiConfig.searchSuggestions();
-        search = addRenderableWidget(new SearchField<>(font, leftPos + panelWidth / 2,
+        search = addRenderableWidget(new MachineSearchField<>(font, leftPos + panelWidth / 2,
                 topPos + 4, panelWidth / 2 - 10, 18, searchSuggestions ? searchIndex : EMPTY_SEARCH_INDEX));
         if (!searchSuggestions) search.setTooltip(null);
         search.setMessage(Component.translatable(GUI + "search"));
@@ -208,18 +203,16 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
 
     private void extractPanel(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         if (menu.submitter == null || menu.submitter.isRemoved()) return;
-        GlassTheme theme = appearance.current().panel();
-        theme.rootShadow(graphics, leftPos, topPos, panelWidth, panelHeight);
-        theme.backdrop(graphics, leftPos, topPos, panelWidth, panelHeight);
-        theme.box(graphics, leftPos, topPos, panelWidth, panelHeight, theme.colors.ROOT_EDGE, theme.panelBg);
+        var theme = appearance.current();
+        theme.panel(graphics, leftPos, topPos, panelWidth, panelHeight);
         SubmitterBlockEntity be = menu.submitter;
         int contentWidth = panelWidth - 20;
         int titleX = 10;
         if (queueIcon != null) {
-            queueIcon.draw(graphics, leftPos + titleX, topPos + 6, 1, theme.colors.TEXT_HEAD);
+            queueIcon.draw(graphics, leftPos + titleX, topPos + 6, 1, theme.text());
             titleX += GraphicIcon.PIXELS + 4;
         }
-        row(graphics, mouseX, mouseY, titleX, 8, panelWidth / 2 - titleX - 6, title, theme.colors.TEXT_HEAD);
+        row(graphics, mouseX, mouseY, titleX, 8, panelWidth / 2 - titleX - 6, title, theme.text());
         GraphicIcon networkIcon = be.isOnline() ? networkOnlineIcon : networkOfflineIcon;
         int networkInset = 0;
         if (networkIcon != null) {
@@ -227,43 +220,43 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
             networkInset = 14;
         }
         row(graphics, mouseX, mouseY, 10 + networkInset, 22, contentWidth - networkInset,
-                Component.translatable(GUI + (be.isOnline() ? "online" : "offline")), theme.colors.TEXT);
+                Component.translatable(GUI + (be.isOnline() ? "online" : "offline")), theme.text());
         row(graphics, mouseX, mouseY, 10, 34, contentWidth,
-                Component.translatable(GUI + "status", be.getStatusComponent()), theme.colors.TEXT);
+                Component.translatable(GUI + "status", be.getStatusComponent()), theme.text());
         row(graphics, mouseX, mouseY, 10, 46, contentWidth,
-                Component.translatable(GUI + "uuid", identifier(be.getSubmitterIdText())), theme.colors.TEXT_MUTED);
+                Component.translatable(GUI + "uuid", identifier(be.getSubmitterIdText())), theme.muted());
         row(graphics, mouseX, mouseY, 10, 58, contentWidth,
-                Component.translatable(GUI + "team", identifier(be.getTeamIdText())), theme.colors.TEXT_MUTED);
+                Component.translatable(GUI + "team", identifier(be.getTeamIdText())), theme.muted());
         row(graphics, mouseX, mouseY, 10, 70, contentWidth,
-                Component.translatable(GUI + "player", identifier(be.getRewardPlayerIdText())), theme.colors.TEXT_MUTED);
+                Component.translatable(GUI + "player", identifier(be.getRewardPlayerIdText())), theme.muted());
         row(graphics, mouseX, mouseY, 10, 84, contentWidth,
                 ChemicalTask.isAvailable()
                         ? Component.translatable(GUI + "summary.chemical", be.getQueueSize(), be.getLastSubmitted(),
                                 be.getLastSubmittedFluid(), be.getLastSubmittedChemical(), be.getLastClaimedRewards())
                         : Component.translatable(GUI + "summary.resources", be.getQueueSize(), be.getLastSubmitted(),
-                                be.getLastSubmittedFluid(), be.getLastClaimedRewards()), theme.colors.TEXT);
+                                be.getLastSubmittedFluid(), be.getLastClaimedRewards()), theme.text());
         row(graphics, mouseX, mouseY, 10, 98, contentWidth,
                 Component.translatable(GUI + (be.isSuppressCompletionToast() ? "toast.suppressed" : "toast.normal")),
-                theme.colors.TEXT);
+                theme.text());
         row(graphics, mouseX, mouseY, 10, 110, contentWidth,
                 Component.translatable(GUI + (be.isMatching() ? "claim.matched"
                         : be.isClaimOnlyQueuedRewards() ? "claim.queued" : "claim.all")),
-                theme.colors.TEXT);
+                theme.text());
         int amountX = panelWidth * 3 / 5;
         row(graphics, mouseX, mouseY, 10, 122, amountX - 14,
                 search.getValue().isBlank() ? Component.translatable(GUI + (be.isMatching() ? "match.goals" : "goals"))
                         : Component.translatable(GUI + "search.results", menu.getMatchedCount(), be.getQueueSize()),
-                theme.colors.TEXT_MUTED);
+                theme.muted());
         row(graphics, mouseX, mouseY, amountX, 122, panelWidth - amountX - 10,
-                Component.translatable(GUI + "progress"), theme.colors.TEXT_MUTED);
+                Component.translatable(GUI + "progress"), theme.muted());
         int rowHeight = queueRowHeight();
-        theme.box(graphics, leftPos + 8, topPos + LIST_TOP, panelWidth - 16,
-                rowHeight * SubmitterMenu.PAGE_SIZE, theme.cellEdge, theme.boxBg);
+        theme.list(graphics, leftPos + 8, topPos + LIST_TOP, panelWidth - 16,
+                rowHeight * SubmitterMenu.PAGE_SIZE);
         if (menu.getRows().isEmpty()) {
             row(graphics, mouseX, mouseY, 14, LIST_TOP + 8, panelWidth - 28,
                     Component.translatable(GUI + (!search.getValue().isBlank() ? "search.empty"
                             : be.isMatching() ? "match.empty" : "empty")),
-                    theme.colors.TEXT_MUTED);
+                    theme.muted());
         } else {
             for (int i = 0; i < menu.getRows().size(); i++) {
                 drawGoal(graphics, mouseX, mouseY, amountX, LIST_TOP + i * rowHeight,
@@ -271,7 +264,7 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
             }
         }
         graphics.centeredText(font, Component.translatable(GUI + "page", menu.getPage() + 1,
-                menu.getPageCount()), leftPos + panelWidth / 2, topPos + panelHeight - 12, theme.colors.TEXT_MUTED);
+                menu.getPageCount()), leftPos + panelWidth / 2, topPos + panelHeight - 12, theme.muted());
     }
 
     private int queueRowHeight() {
@@ -281,7 +274,7 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
     private void drawGoal(GuiGraphicsExtractor graphics, int mouseX, int mouseY, int amountX,
                           int y, int rowHeight, SubmitterMenu.QueueRow goal) {
         var frame = appearance.current();
-        int color = goal.completed() ? frame.completeText() : frame.panel().colors.TEXT;
+        int color = goal.completed() ? frame.completeText() : frame.text();
         var file = (ClientQuestFile.exists() ? ClientQuestFile.getInstance() : null);
         var task = file == null || !goal.valid() ? null : file.getTask(goal.taskId());
         Component target = task == null ? goal.title() : Component.translatable(GUI + "target",
@@ -405,7 +398,8 @@ public final class SubmitterScreen extends AbstractContainerScreen<SubmitterMenu
         });
         if (suggestions.isPresent()) {
             ((GuiGraphicsTooltipAccessor) graphics).nexus$setDeferredTooltip(null);
-            GaussBlur.deferTopLayer(this, top -> frame.paint(() -> search.renderSuggestions(top, mouseX, mouseY, height)));
+            graphics.nextStratum();
+            frame.paint(() -> search.renderSuggestions(graphics, mouseX, mouseY, height));
         } else if (hoveredText != null) {
             graphics.setTooltipForNextFrame(hoveredText, mouseX, mouseY);
         }

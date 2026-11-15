@@ -5,17 +5,17 @@ import org.lwjgl.glfw.GLFW;
 
 import com.dishanhai.ftb_quest_nexus.config.ClientUiConfig;
 import com.dishanhai.ftb_quest_nexus.config.ClientUiConfig.Mode;
-import com.dishanhai.sh_better_ui.client.api.MaterialsApi.ThemeChoice;
-import com.dishanhai.sh_better_ui.client.blur.GaussBlur;
+import com.dishanhai.ftb_quest_nexus.client.BlockScreenTheme.ThemeChoice;
+import com.dishanhai.ftb_quest_nexus.client.glass.NexusSurface;
 import com.dishanhai.sh_better_ui.client.gui.display.GraphicDisplayLayout.Bounds;
 import com.dishanhai.sh_better_ui.client.gui.display.GraphicIcon;
-import com.dishanhai.sh_better_ui.client.gui.scaled.DarkModeTheme;
-import com.dishanhai.sh_better_ui.client.gui.scaled.LiquidGlassTheme;
 import com.dishanhai.sh_better_ui.client.gui.scaled.RoundedCorners;
 import com.dishanhai.sh_better_ui.client.gui.scaled.UiButton;
 import com.dishanhai.sh_better_ui.client.gui.scaled.UiPreferences;
 import com.dishanhai.sh_better_ui.client.gui.scaled.UiSlider;
 import com.dishanhai.sh_better_ui.client.gui.scaled.UiStyle;
+import com.dishanhai.sh_better_ui.client.gui.scaled.UiTheme;
+import com.dishanhai.sh_better_ui.kernel.api.glass.GlassVariant;
 import com.dishanhai.sh_better_ui.client.gui.scaled.UiUnderlinedTabs;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -36,19 +36,15 @@ import java.util.function.Supplier;
 final class NexusConfigScreen extends Screen {
     private static final String KEY = "config.ftb_quest_nexus.ftbq_ui";
     // Match SH-Better-UI ControlPanelScreen's viewport limits.
-    private static final int MAX_PANEL_WIDTH = 624;
-    private static final int MAX_PANEL_HEIGHT = 330;
-    private static final int SCREEN_MARGIN = 6;
+    private static final int MAX_PANEL_WIDTH = 472;
+    private static final int MAX_PANEL_HEIGHT = 258;
+    private static final int SCREEN_MARGIN = 8;
     private static final int PADDING = 14;
     private static final int GAP = 8;
     private static final int ROW_HEIGHT = 22;
     private static final int BODY_TOP = 54;
 
     private enum Page { APPEARANCE, FEATURES, BLOCK_APPEARANCE }
-
-    static {
-        GaussBlur.allowScreen(screen -> screen instanceof NexusConfigScreen);
-    }
 
     private final Screen parent;
     private final boolean loaded = ClientUiConfig.SPEC.isLoaded();
@@ -176,7 +172,7 @@ final class NexusConfigScreen extends Screen {
         minecraft.setScreen(parent);
     }
 
-    // NeoForge calls this from Screen.render; Forge 1.20.1 uses a different signature.
+    @Override
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {}
 
     @Override
@@ -187,10 +183,13 @@ final class NexusConfigScreen extends Screen {
         int panelHeight = panelHeight();
         int contentWidth = panelWidth - 2 * PADDING;
         int x = left + PADDING;
-        DarkModeTheme.background(graphics, 0, 0, width, height);
+        var theme = UiTheme.current();
+        if (minecraft.level == null) extractPanorama(graphics, partialTick);
+        graphics.fill(0, 0, width, height, 0x30121A26);
         renderPanel(graphics, left, y, panelWidth, panelHeight, contentWidth,
                 Math.max(0, footerTop() - y - BODY_TOP - 16));
-        int ink = LiquidGlassTheme.textColor();
+        graphics.nextStratum();
+        int ink = theme.text();
         drawLabel(graphics, title, x, y + 15, contentWidth, ink);
         if (page == Page.BLOCK_APPEARANCE) {
             drawLabel(graphics, label("submitter_theme"), x, y + BODY_TOP + 5, contentWidth, ink);
@@ -203,7 +202,7 @@ final class NexusConfigScreen extends Screen {
                     case BLOCK_APPEARANCE -> "reopen_blocks";
                 });
         drawLabel(graphics, status, x, footerTop() - 12, contentWidth,
-                LiquidGlassTheme.mutedTextColor());
+                theme.secondaryText(0xFFB8C9D9, .24f));
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 
@@ -303,10 +302,12 @@ final class NexusConfigScreen extends Screen {
     private static void renderPanel(GuiGraphicsExtractor graphics, int x, int y, int width, int height,
                                     int contentWidth, int bodyHeight) {
         var preferences = UiPreferences.configured();
-        LiquidGlassTheme.popover(graphics, x, y, width, height, preferences);
-        boolean contrast = preferences.highContrast();
+        var theme = UiTheme.current();
+        int edge = preferences.highContrast() ? theme.text() : theme.border();
+        NexusSurface.panel(graphics, x, y, width, height, theme.surface() & 0xFFFFFF | 0xA0000000,
+                edge, theme.hudGlass() ? GlassVariant.CLEAR : GlassVariant.REGULAR, 1, -1);
+        graphics.nextStratum();
         RoundedCorners.draw(graphics, x + PADDING - 3, y + BODY_TOP, contentWidth + 6, bodyHeight, 5f, 1f,
-                contrast ? LiquidGlassTheme.textColor() : DarkModeTheme.borderColor(),
-                contrast ? DarkModeTheme.backgroundColor() : DarkModeTheme.surfaceColor());
+                edge, theme.surface());
     }
 }

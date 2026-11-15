@@ -16,9 +16,28 @@ import static org.junit.jupiter.api.Assertions.*;
 class CheckerSearchIntegrationTest {
     @Test
     void searchUsesLibraryCompletionAndCompleteCatalog() throws IOException {
+        Set<String> calls = callsFrom("CheckerScreen");
+        assertTrue(calls.containsAll(Set.of("SearchIndex.search", "CheckerMenu.getCatalogRows",
+                "CheckerBlockEntity$CheckRow.completed", "CheckerBlockEntity$CheckRow.available",
+                "CheckerBlockEntity$CheckRow.fluid")), calls.toString());
+        boolean extractor = calls.contains("GuiGraphicsExtractor.nextStratum");
+        String searchField = extractor ? "MachineSearchField" : "SearchField";
+        for (String method : Set.of("<init>", "setScope", "renderSuggestions", "mouseClickedSuggestion",
+                "mouseScrolledSuggestions")) {
+            assertTrue(calls.contains(searchField + "." + method), calls.toString());
+        }
+        if (extractor) {
+            assertTrue(callsFrom(searchField).contains("SearchIndex.suggest"));
+        } else {
+            assertTrue(calls.containsAll(Set.of("IngredientFilter.all", "IngredientFilter.items",
+                    "IngredientFilter.fluids", "IngredientFilter.kinds")), calls.toString());
+        }
+        assertFalse(calls.contains("CheckerMenu.getPage"), "Search results must be paginated after filtering");
+    }
+
+    private Set<String> callsFrom(String type) throws IOException {
         Set<String> calls = new HashSet<>();
-        try (var input = getClass().getClassLoader().getResourceAsStream(
-                "com/dishanhai/ftb_quest_nexus/client/CheckerScreen.class")) {
+        try (var input = getClass().getResourceAsStream(type + ".class")) {
             assertNotNull(input);
             new ClassReader(input).accept(new ClassVisitor(Opcodes.ASM9) {
                 @Override
@@ -34,12 +53,6 @@ class CheckerSearchIntegrationTest {
                 }
             }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         }
-        assertTrue(calls.containsAll(Set.of("SearchIndex.search", "SearchField.<init>", "SearchField.setScope",
-                "SearchField.renderSuggestions", "SearchField.mouseClickedSuggestion",
-                "SearchField.mouseScrolledSuggestions", "CheckerMenu.getCatalogRows",
-                "CheckerBlockEntity$CheckRow.completed", "CheckerBlockEntity$CheckRow.available",
-                "CheckerBlockEntity$CheckRow.fluid", "IngredientFilter.all", "IngredientFilter.items",
-                "IngredientFilter.fluids", "IngredientFilter.kinds")), calls.toString());
-        assertFalse(calls.contains("CheckerMenu.getPage"), "Search results must be paginated after filtering");
+        return calls;
     }
 }

@@ -27,7 +27,6 @@ def sharedJava = fileTree('../src/main/java') {
     include 'com/dishanhai/ftb_quest_nexus/client/FtbqSubmitterSelectionClient.java'
     include 'com/dishanhai/ftb_quest_nexus/client/HeaderButtonLayout.java'
     include 'com/dishanhai/ftb_quest_nexus/client/NexusIcons.java'
-    include 'com/dishanhai/ftb_quest_nexus/client/BlockScreenTheme.java'
     include 'com/dishanhai/ftb_quest_nexus/client/NexusConfigScreen.java'
     include 'com/dishanhai/ftb_quest_nexus/client/glass/GlassUiPolicy.java'
     include 'com/dishanhai/ftb_quest_nexus/config/NexusConfigCommands.java'
@@ -43,13 +42,23 @@ sourceSets.test {
 tasks.named('compileJava') { source previousJava, sharedJava }
 tasks.named('sourcesJar') { from previousJava, sharedJava }
 
-def shBetterUiJar = file(findProperty('shBetterUiJar') ?: "../../SH-Better-UI/neoforge-26.1.2/build/libs/sh_better_ui-neoforge-${minecraft_version}-${sh_better_ui_version}.jar")
+def shBetterUiName = "sh_better_ui-neoforge-${minecraft_version}-${sh_better_ui_version}.jar"
+def shBetterUiLocal = file("libs/${shBetterUiName}")
+def shBetterUiJar = file(findProperty('shBetterUiJar') ?: (shBetterUiLocal.isFile()
+        ? shBetterUiLocal : "../../SH-Better-UI/neoforge-26.1.2/build/libs/${shBetterUiName}"))
+def shCommonLibName = "sh-common-lib-neoforge-${minecraft_version}-${sh_common_lib_version}.jar"
+def shCommonLibLocal = file("libs/${shCommonLibName}")
+def shCommonLibJar = file(findProperty('shCommonLibJar') ?: (shCommonLibLocal.isFile()
+        ? shCommonLibLocal : "../../SH-Common-Lib/neoforge-26.1.2/build/libs/${shCommonLibName}"))
 def chemicalMods = files('libs/mekanism-version-locked-1713956-9267959.jar', 'libs/applied-mekanistics-version-locked-1742374-9153209.jar')
 
 tasks.named('compileJava') {
     doFirst {
         if (!shBetterUiJar.isFile()) {
-            throw new GradleException('Build the Minecraft 26.1.2 SH-Better-UI client API, or set -PshBetterUiJar=<26.1.2-jar>.')
+            throw new GradleException("SH-Better-UI jar not found: ${shBetterUiJar}. Place it in neoforge-26.1.2/libs, build SH-Better-UI/neoforge-26.1.2, or set -PshBetterUiJar=<jar>.")
+        }
+        if (findProperty('shCommonLibJar') && !shCommonLibJar.isFile()) {
+            throw new GradleException("SH-Common-Lib jar not found: ${shCommonLibJar}.")
         }
     }
 }
@@ -60,6 +69,7 @@ dependencies {
             'libs/ftb-teams-neoforge-26.1.2.5.jar',
             'libs/guideme-26.1.17-beta.jar')
     implementation files(shBetterUiJar)
+    if (shCommonLibJar.isFile()) compileOnly files(shCommonLibJar)
     compileOnly files('libs/Jade-mc26.1-NeoForge-26.1.12.jar')
     compileOnly chemicalMods
     // FTB Library bundles JSON5 as a runtime Jar-in-Jar; its quest serializers expose it at compile time.
@@ -99,7 +109,8 @@ processResources {
     })
     from('../src/main/resources/data/ftb_quest_nexus/structures') { into 'data/ftb_quest_nexus/structure' }
     def props = [mod_id: mod_id, mod_name: mod_name, mod_version: mod_version,
-                 mod_authors: mod_authors, neo_version: neo_version, minecraft_version: minecraft_version]
+                 mod_authors: mod_authors, neo_version: neo_version, minecraft_version: minecraft_version,
+                 sh_better_ui_version: sh_better_ui_version]
     inputs.properties props
     filesMatching('META-INF/neoforge.mods.toml') { expand props }
     filesMatching('assets/**/models/**/*.json') { filter { line -> line.replace('"forge_data"', '"neoforge_data"') } }
@@ -120,8 +131,11 @@ tasks.register('verifyModJar') {
         try {
             ['META-INF/neoforge.mods.toml', 'ftb_quest_nexus.ftb_quests.mixins.json',
              'com/dishanhai/ftb_quest_nexus/QuestNexus.class',
+             'com/dishanhai/ftb_quest_nexus/client/NexusConfigScreen.class',
+             'com/dishanhai/ftb_quest_nexus/client/MachineSearchField.class',
              'data/ftb_quest_nexus/loot_table/blocks/ftbq_ae_submitter.json',
-             'data/ftb_quest_nexus/recipe/ftbq_ae_submitter.json'].each {
+             'data/ftb_quest_nexus/recipe/ftbq_ae_submitter.json',
+             'data/ftb_quest_nexus/recipe/ftbq_ae_checker.json'].each {
                 if (zip.getEntry(it) == null) throw new GradleException("Missing mod entry: ${it}")
             }
             def forbidden = zip.entries().findAll {

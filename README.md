@@ -48,7 +48,7 @@ UI 使用外置 SH-Better-UI 的公开 `UiButton` 与玻璃面板，显示绑定
 
 本机验证依赖：AE2 15.4.10、FTB Quests 2001.4.22、FTB Teams 2001.3.2、FTB Library 2001.2.13、Architectury 9.2.14、GuideME 20.1.15、SH-Better-UI 1.0.6、KotlinForForge 4.12.0。Jade 11.13.3 是可选信息显示集成。
 
-**SH-Better-UI 是必需前置**，直接使用桌面 `SH-Better-UI` 项目提供的玻璃面板、模糊、tooltip 和动效，不复制或内嵌其实现。开发构建默认引用 `../SH-Better-UI/build/libs/sh_better_ui-1.0.6-dev.jar`，可用 `-PshBetterUiJar=<dev-jar>` 指定其他位置；UI 项目修改后重新构建其 `devJar` 即可供本项目使用。
+**SH-Better-UI 是必需前置**，直接使用其玻璃面板、模糊、tooltip 和动效，不复制或内嵌其实现。Forge 构建优先从 `libs/` 查找对应版本的 SH-Better-UI dev JAR 和可选的 SH-Common-Lib JAR，其次查找相邻项目的 `SH-Better-UI/build/libs/` 和 `SH-Common-Lib/forge/build/libs/`；NeoForge 构建对应使用 `neoforge/libs/` 和两个项目的 `neoforge/build/libs/`。可分别通过 `-PshBetterUiJar=<路径>`、`-PshCommonLibJar=<路径>` 覆盖。SH-Common-Lib 仅在存在时加入编译路径，当前不是必需前置。
 
 游戏中独立安装 SH-Better-UI 正式 jar 及其 KotlinForForge 前置。检查器类型筛选需要包含 `IngredientFilter` API 的 SH-Better-UI 1.0.6 或更新构建。本模组自身不使用 Kotlin，也不将依赖展开或嵌入模组 jar。其余开发依赖已放在 `libs/`，正式运行依赖的本机副本在 `libs/runtime/`。不需要 GTCEu、GTLCore、GTLAdditions、KubeJS 或 LDLib。
 
@@ -61,9 +61,11 @@ $env:TMP = 'C:\jtmp'
 
 根目录执行 `gradlew.bat build` 会依次构建 Forge 与 NeoForge。带 `reobfJar` 或 `extractNatives` 的命令只在 Forge 执行，包括用 `-x` 排除这些任务。NeoForge 的独立命令见 [NeoForge 构建说明](neoforge/README.md)。
 
+Minecraft 26.1.2 使用 Java 25 和独立的 NeoForge 构建目录，详见 [26.1.2 构建说明](neoforge-26.1.2/README.md)。
+
 本机依赖缓存完整时可加 `--offline`。更换机器后需要取得 ForgeGradle、映射及测试依赖缓存。Forge wrapper 使用 Gradle 8.8。
 
-正式产物：`build/libs/ftb_quest_nexus-1.1.0.jar`。不要安装 `-sources.jar` 或开发用的 UI `-dev.jar`。
+正式产物：`build/libs/ftb_quest_nexus-1.2.0.jar`。不要安装 `-sources.jar` 或开发用的 UI `-dev.jar`。
 
 独立服务端测试：
 

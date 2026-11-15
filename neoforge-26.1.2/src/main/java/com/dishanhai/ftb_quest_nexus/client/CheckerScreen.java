@@ -10,16 +10,9 @@ import com.dishanhai.ftb_quest_nexus.api.ftbq.FtbqQuestFileRevision;
 import com.dishanhai.ftb_quest_nexus.checker.CheckerBlockEntity;
 import com.dishanhai.ftb_quest_nexus.checker.CheckerMenu;
 import com.dishanhai.ftb_quest_nexus.config.ClientUiConfig;
-import com.dishanhai.sh_better_ui.client.blur.GaussBlur;
-import com.dishanhai.sh_better_ui.client.glass.GlassBlur;
-import com.dishanhai.sh_better_ui.client.glass.GlassTheme;
 import com.dishanhai.sh_better_ui.client.gui.display.GraphicIcon;
-import com.dishanhai.sh_better_ui.client.gui.filter.IngredientFilter;
-import com.dishanhai.sh_better_ui.client.gui.scaled.GuiRenderUtil;
 import com.dishanhai.sh_better_ui.client.gui.scaled.UiButton;
-import com.dishanhai.sh_better_ui.client.gui.search.SearchField;
 import com.dishanhai.sh_better_ui.client.gui.search.SearchIndex;
-import com.dishanhai.sh_better_ui.client.jei.JeiIntegration.Kind;
 import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalTask;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -38,9 +31,9 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
     private static final int LIST_TOP = 156;
     private static final int ROW_HEIGHT = 14;
     private static final SearchIndex<Integer> EMPTY_SEARCH_INDEX = new SearchIndex<>(List.of());
-    private static final List<IngredientFilter> TYPE_FILTERS = List.of(
-            IngredientFilter.all(), IngredientFilter.items(), IngredientFilter.fluids());
-    private static final int ENERGY_FILTER = TYPE_FILTERS.size();
+    private static final int ITEM_FILTER = 1;
+    private static final int FLUID_FILTER = 2;
+    private static final int ENERGY_FILTER = 3;
     private static final int CHEMICAL_FILTER = ENERGY_FILTER + 1;
     private UiButton pauseButton;
     private UiButton previousButton;
@@ -50,7 +43,7 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
     private UiButton stockButton;
     private UiButton sortButton;
     private UiButton typeButton;
-    private SearchField<Integer> search;
+    private MachineSearchField<Integer> search;
     private SearchIndex<Integer> index = EMPTY_SEARCH_INDEX;
     private boolean searchSuggestions;
     private List<CheckerBlockEntity.CheckRow> indexedRows = List.of();
@@ -90,10 +83,9 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
         super.init();
         leftPos = (width - panelWidth) / 2;
         topPos = (height - panelHeight) / 2;
-        GlassBlur.warmUp();
         completionIcon = NexusIcons.available(NexusIcons.TASK, GraphicIcon.LIST);
         searchSuggestions = ClientUiConfig.searchSuggestions();
-        search = addRenderableWidget(new SearchField<>(font, leftPos + 10, topPos + 98,
+        search = addRenderableWidget(new MachineSearchField<>(font, leftPos + 10, topPos + 98,
                 panelWidth - 20, 18, searchSuggestions ? index : EMPTY_SEARCH_INDEX));
         if (!searchSuggestions) search.setTooltip(null);
         search.setMessage(Component.translatable(GUI + "search"));
@@ -143,10 +135,7 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
                 || (stockedOnly && row.available() <= 0)) return false;
         if (row.energy()) return typeFilter == 0 || typeFilter == ENERGY_FILTER;
         if (row.chemical()) return typeFilter == 0 || typeFilter == CHEMICAL_FILTER;
-        if (typeFilter >= ENERGY_FILTER) return false;
-        var kinds = TYPE_FILTERS.get(typeFilter).kinds();
-        Kind kind = row.fluid() ? Kind.FLUID : Kind.ITEM;
-        return kinds.isEmpty() || kinds.contains(kind);
+        return typeFilter == 0 || typeFilter == (row.fluid() ? FLUID_FILTER : ITEM_FILTER);
     }
 
     private void refreshCatalog() {
@@ -263,38 +252,35 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
     private void extractPanel(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         if (menu.checker == null || menu.checker.isRemoved()) return;
         CheckerBlockEntity checker = menu.checker;
-        GlassTheme theme = appearance.current().panel();
-        theme.rootShadow(graphics, leftPos, topPos, panelWidth, panelHeight);
-        theme.backdrop(graphics, leftPos, topPos, panelWidth, panelHeight);
-        theme.box(graphics, leftPos, topPos, panelWidth, panelHeight, theme.colors.ROOT_EDGE, theme.panelBg);
-        text(graphics, mouseX, mouseY, 10, 8, panelWidth - 20, title, theme.colors.TEXT_HEAD);
+        var theme = appearance.current();
+        theme.panel(graphics, leftPos, topPos, panelWidth, panelHeight);
+        text(graphics, mouseX, mouseY, 10, 8, panelWidth - 20, title, theme.text());
         text(graphics, mouseX, mouseY, 10, 24, panelWidth - 20,
-                Component.translatable(GUI + (checker.isOnline() ? "online_with_energy" : "offline")), theme.colors.TEXT);
+                Component.translatable(GUI + (checker.isOnline() ? "online_with_energy" : "offline")), theme.text());
         text(graphics, mouseX, mouseY, 10, 38, panelWidth - 20,
-                Component.translatable(GUI + "status", checker.getStatusComponent()), theme.colors.TEXT);
+                Component.translatable(GUI + "status", checker.getStatusComponent()), theme.text());
         text(graphics, mouseX, mouseY, 10, 52, panelWidth - 20,
-                Component.translatable(GUI + "player", identifier(checker.getPlayerIdText())), theme.colors.TEXT_MUTED);
+                Component.translatable(GUI + "player", identifier(checker.getPlayerIdText())), theme.muted());
         text(graphics, mouseX, mouseY, 10, 66, panelWidth - 20,
-                Component.translatable(GUI + "team", identifier(checker.getTeamIdText())), theme.colors.TEXT_MUTED);
+                Component.translatable(GUI + "team", identifier(checker.getTeamIdText())), theme.muted());
         Component summary = ChemicalTask.isAvailable()
                 ? Component.translatable(GUI + "summary_with_chemical", checker.getItemTaskCount(),
                         checker.getFluidTaskCount(), checker.getEnergyTaskCount(), checker.getChemicalTaskCount(),
                         checker.getCompletedLastScan())
                 : Component.translatable(GUI + "summary_with_energy", checker.getItemTaskCount(),
                         checker.getFluidTaskCount(), checker.getEnergyTaskCount(), checker.getCompletedLastScan());
-        text(graphics, mouseX, mouseY, 10, 82, panelWidth - 20, summary, theme.colors.TEXT);
+        text(graphics, mouseX, mouseY, 10, 82, panelWidth - 20, summary, theme.text());
         int amountX = panelWidth * 3 / 5;
         text(graphics, mouseX, mouseY, 10, 142, amountX - 14,
-                Component.translatable(GUI + "goals"), theme.colors.TEXT_MUTED);
+                Component.translatable(GUI + "goals"), theme.muted());
         text(graphics, mouseX, mouseY, amountX, 142, panelWidth - amountX - 10,
-                Component.translatable(GUI + "stock_or_progress"), theme.colors.TEXT_MUTED);
-        theme.box(graphics, leftPos + 8, topPos + LIST_TOP, panelWidth - 16, ROW_HEIGHT * pageSize,
-                theme.cellEdge, theme.boxBg);
+                Component.translatable(GUI + "stock_or_progress"), theme.muted());
+        theme.list(graphics, leftPos + 8, topPos + LIST_TOP, panelWidth - 16, ROW_HEIGHT * pageSize);
         if (visibleRows.isEmpty()) {
             int emptyY = LIST_TOP + Math.min(8, ROW_HEIGHT * pageSize - 12);
             text(graphics, mouseX, mouseY, 14, emptyY, panelWidth - 28,
                     Component.translatable(GUI + (menu.getCatalogRows().isEmpty() ? "empty" : "no_matches")),
-                    theme.colors.TEXT_MUTED);
+                    theme.muted());
         } else {
             int rowIndex = 0;
             int end = Math.min(visibleRows.size(), (page + 1) * pageSize);
@@ -306,13 +292,13 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
         }
         Component pageLabel = Component.translatable(GUI + "page_matches", page + 1, pageCount(), visibleRows.size());
         graphics.centeredText(font, pageLabel, leftPos + panelWidth / 2,
-                topPos + panelHeight - 12, theme.colors.TEXT_MUTED);
+                topPos + panelHeight - 12, theme.muted());
     }
 
     private void drawGoal(GuiGraphicsExtractor graphics, int mouseX, int mouseY, int amountX,
                           int y, int rowHeight, CheckerBlockEntity.CheckRow row) {
         var frame = appearance.current();
-        int color = row.completed() ? frame.completeText() : frame.panel().colors.TEXT;
+        int color = row.completed() ? frame.completeText() : frame.text();
         Component title = goalTitle(row);
         String kind = row.chemical() ? "chemical" : row.energy() ? "energy" : row.fluid() ? "fluid" : "item";
         Component name = Component.translatable(GUI + kind + "_goal", title);
@@ -342,7 +328,7 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
 
     private void text(GuiGraphicsExtractor graphics, int mouseX, int mouseY, int x, int y, int width,
                       Component value, int color) {
-        graphics.text(font, GuiRenderUtil.trimText(font, value.getString(), width),
+        graphics.text(font, net.minecraft.locale.Language.getInstance().getVisualOrder(font.substrByWidth(value, width)),
                 leftPos + x, topPos + y + 2, color, false);
         if (mouseX >= leftPos + x && mouseX < leftPos + x + width
                 && mouseY >= topPos + y && mouseY < topPos + y + 12) {
@@ -421,7 +407,8 @@ public final class CheckerScreen extends AbstractContainerScreen<CheckerMenu> {
         });
         if (suggestions.isPresent()) {
             ((GuiGraphicsTooltipAccessor) graphics).nexus$setDeferredTooltip(null);
-            GaussBlur.deferTopLayer(this, top -> frame.paint(() -> search.renderSuggestions(top, mouseX, mouseY, height)));
+            graphics.nextStratum();
+            frame.paint(() -> search.renderSuggestions(graphics, mouseX, mouseY, height));
         } else if (hoveredText != null) {
             graphics.setTooltipForNextFrame(hoveredText, mouseX, mouseY);
         }
