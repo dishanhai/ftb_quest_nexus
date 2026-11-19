@@ -99,3 +99,5 @@ From the Mods list, open **FTB Quest Nexus → Config → Block Style**. Choose 
 The project was forked from `gt_shanhai:ftbq_ae_submitter` and carries over its submission and reward delivery behavior, glass appearance, and animations. The original project retains its code, registrations, and recipes. Each block uses its own ID, queue, network channels, and nodes, and existing saves keep their original blocks. Both mods expose their own quest registration actions when installed together. In-game coexistence checks are pending.
 
 The project name and mod ID are **FTB Quest Nexus / `ftb_quest_nexus`**. See [source and attribution](SOURCE.md).
+
+[Create / Applied Kinetics stress objective](docs/create-stress-task.md) (NeoForge 1.21.1)
