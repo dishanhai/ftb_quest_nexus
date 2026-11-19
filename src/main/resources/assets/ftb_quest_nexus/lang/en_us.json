@@ -273,5 +273,19 @@
   "config.ftb_quest_nexus.server.value": "%s: %s",
   "config.ftb_quest_nexus.server.save_failed": "Could not save server settings.",
   "status.ftb_quest_nexus.server_submission_disabled": "Automatic submission disabled by the server",
-  "status.ftb_quest_nexus.checker.server_disabled": "Automatic checking disabled by the server"
+  "status.ftb_quest_nexus.checker.server_disabled": "Automatic checking disabled by the server",
+  "task.ftb_quest_nexus.create_stress": "Create network stress",
+  "task.ftb_quest_nexus.create_stress.target": "%s ≥ %s",
+  "task.ftb_quest_nexus.create_stress.amount": "Required stress (SU)",
+  "task.ftb_quest_nexus.create_stress.capacity": "Network capacity",
+  "task.ftb_quest_nexus.create_stress.load": "Applied load",
+  "task.ftb_quest_nexus.create_stress.headroom": "Available capacity",
+  "task.ftb_quest_nexus.create_stress.metric": "Stress metric",
+  "task.ftb_quest_nexus.create_stress.unavailable": "This task is not available.",
+  "task.ftb_quest_nexus.create_stress.task_invalid": "No Create stress task matches that ID.",
+  "task.ftb_quest_nexus.create_stress.missing_mod": "Create is not installed on this server.",
+  "task.ftb_quest_nexus.create_stress.inactive": "Aim at a loaded, rotating Create Stressometer on a network that is not overloaded.",
+  "task.ftb_quest_nexus.create_stress.insufficient": "Measured %s SU; requires %s.",
+  "task.ftb_quest_nexus.create_stress.passed": "Stress objective verified.",
+  "task.ftb_quest_nexus.create_stress.hint": "Aim at the Stressometer, then click this task. You can also run /ftbqn stress check %s."
 }

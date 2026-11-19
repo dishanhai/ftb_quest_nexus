@@ -273,5 +273,19 @@
   "config.ftb_quest_nexus.server.value": "%s：%s",
   "config.ftb_quest_nexus.server.save_failed": "服务端配置保存失败。",
   "status.ftb_quest_nexus.server_submission_disabled": "服务端已关闭自动提交",
-  "status.ftb_quest_nexus.checker.server_disabled": "服务端已关闭自动检查"
+  "status.ftb_quest_nexus.checker.server_disabled": "服务端已关闭自动检查",
+  "task.ftb_quest_nexus.create_stress": "机械动力网络应力",
+  "task.ftb_quest_nexus.create_stress.target": "%s ≥ %s",
+  "task.ftb_quest_nexus.create_stress.amount": "所需应力（SU）",
+  "task.ftb_quest_nexus.create_stress.capacity": "网络容量",
+  "task.ftb_quest_nexus.create_stress.load": "当前负载",
+  "task.ftb_quest_nexus.create_stress.headroom": "剩余容量",
+  "task.ftb_quest_nexus.create_stress.metric": "应力指标",
+  "task.ftb_quest_nexus.create_stress.unavailable": "当前无法提交此任务。",
+  "task.ftb_quest_nexus.create_stress.task_invalid": "没有对应 ID 的应力任务。",
+  "task.ftb_quest_nexus.create_stress.missing_mod": "此服务器没有安装机械动力。",
+  "task.ftb_quest_nexus.create_stress.inactive": "请对准已加载且正常运转、未过载的机械动力应力表。",
+  "task.ftb_quest_nexus.create_stress.insufficient": "实测 %s SU；需要 %s。",
+  "task.ftb_quest_nexus.create_stress.passed": "应力目标已验证。",
+  "task.ftb_quest_nexus.create_stress.hint": "准星对准应力表后点击此任务，或运行 /ftbqn stress check %s。"
 }

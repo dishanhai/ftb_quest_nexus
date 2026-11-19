@@ -99,3 +99,5 @@ blurRadius = 8
 由 `gt_shanhai:ftbq_ae_submitter` fork，保留其提交與獎勵交付語義、玻璃外觀及動畫資源。原專案程式碼、註冊及配方保留；舊方塊與新方塊使用獨立 ID、隊列、網路通道和節點，不自動遷移舊存檔。並裝時各自有任務登記入口，實際共存操作仍需按驗收單測試。
 
 作者與程式碼來源見 [SOURCE.md](SOURCE.md)。專案名稱和模組 ID 固定為 **FTB Quest Nexus / `ftb_quest_nexus`**。
+
+[機械動力 / 應用機動應力任務](docs/create-stress-task.md)（NeoForge 1.21.1）
