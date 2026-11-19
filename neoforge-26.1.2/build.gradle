@@ -15,12 +15,18 @@ repositories {
     maven { url = 'https://thedarkcolour.github.io/KotlinForForge/' }
 }
 
-def previousJava = fileTree('../neoforge/src/main/java') {
+def previousJava = fileTree('../neoforge-1.21.1/src/main/java') {
     // The 1.21.1 annotation-based GameTests need porting to the 26.1 test registry.
     exclude '**/*GameTests.java'
+    // The optional integrations use the 1.21.1 Minecraft and FTB Quests APIs.
+    exclude '**/compat/ars/**', '**/compat/create/**', '**/compat/pneumatic/**'
     exclude { details -> file('src/main/java/' + details.path).isFile() }
 }
 def sharedJava = fileTree('../src/main/java') {
+    include 'com/dishanhai/ftb_quest_nexus/mixin/ShBetterUiFumoRegistrationMixin.java'
+    include 'com/dishanhai/ftb_quest_nexus/fumo/*.java'
+    exclude '**/fumo/FumoRegistration.java'
+    exclude '**/fumo/DishanhaiFumoBlock.java', '**/fumo/FakeFumoBlock.java', '**/fumo/FumoRenderer.java'
     include 'com/dishanhai/ftb_quest_nexus/api/ftbq/**'
     include 'com/dishanhai/ftb_quest_nexus/api/BindingTransfer.java'
     include 'com/dishanhai/ftb_quest_nexus/client/FtbqChoiceRewardScreen.java'
@@ -104,7 +110,7 @@ processResources {
         include 'assets/**', 'ftb-quest-nexus-icon.png'
         exclude 'assets/**/models/item/*.json'
     }
-    from(fileTree('../neoforge/src/main/resources') {
+    from(fileTree('../neoforge-1.21.1/src/main/resources') {
         exclude { details -> file('src/main/resources/' + details.path).isFile() }
     })
     from('../src/main/resources/data/ftb_quest_nexus/structures') { into 'data/ftb_quest_nexus/structure' }

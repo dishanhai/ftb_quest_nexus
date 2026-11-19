@@ -32,9 +32,9 @@ if not "%BUILD_RESULT%"=="0" goto finish
 if defined FORGE_ONLY goto finish
 if not defined BUILD_BOTH goto finish
 if "%~1"=="" (
-    call "%APP_HOME%neoforge\gradlew.bat" -p "%APP_HOME%neoforge" build
+    call "%APP_HOME%neoforge-1.21.1\gradlew.bat" -p "%APP_HOME%neoforge-1.21.1" build
 ) else (
-    call "%APP_HOME%neoforge\gradlew.bat" -p "%APP_HOME%neoforge" %*
+    call "%APP_HOME%neoforge-1.21.1\gradlew.bat" -p "%APP_HOME%neoforge-1.21.1" %*
 )
 set "BUILD_RESULT=%ERRORLEVEL%"
 

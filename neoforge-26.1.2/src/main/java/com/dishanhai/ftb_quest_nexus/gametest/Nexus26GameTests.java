@@ -7,6 +7,8 @@ import com.dishanhai.ftb_quest_nexus.submitter.SubmitterBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -22,6 +24,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.level.storage.TagValueOutput;
+import net.neoforged.fml.ModList;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.capabilities.Capabilities;
@@ -45,6 +48,7 @@ public final class Nexus26GameTests {
             registry.register(id("submitter_save"), Nexus26GameTests::submitterSave);
             registry.register(id("submitter_drop_and_pick"), Nexus26GameTests::submitterDropAndPick);
             registry.register(id("checker_energy_and_recipes"), Nexus26GameTests::checkerEnergyAndRecipes);
+            registry.register(id("fumo_provider"), Nexus26GameTests::registersOnlyActiveFumoProvider);
         });
     }
 
@@ -142,5 +146,30 @@ public final class Nexus26GameTests {
 
     private static Identifier id(String name) {
         return Identifier.fromNamespaceAndPath(QuestNexus.MOD_ID, name);
+    }
+
+    private static void registersOnlyActiveFumoProvider(GameTestHelper helper) {
+        boolean libraryLoaded = ModList.get().isLoaded("sh_common_lib");
+        String active = libraryLoaded ? "sh_common_lib" : QuestNexus.MOD_ID;
+        String inactive = libraryLoaded ? QuestNexus.MOD_ID : "sh_common_lib";
+        for (String name : new String[]{"dishanhai_fumo", "beibeipuo_fumo", "fake_fumo"}) {
+            var current = Identifier.fromNamespaceAndPath(active, name);
+            var alternate = Identifier.fromNamespaceAndPath(inactive, name);
+            var legacy = Identifier.fromNamespaceAndPath("sh_better_ui", name);
+            verifyFumoEntry(helper, BuiltInRegistries.BLOCK, current, alternate, legacy);
+            verifyFumoEntry(helper, BuiltInRegistries.ITEM, current, alternate, legacy);
+        }
+        verifyFumoEntry(helper, BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                Identifier.fromNamespaceAndPath(active, "dishanhai_fumo"),
+                Identifier.fromNamespaceAndPath(inactive, "dishanhai_fumo"),
+                Identifier.fromNamespaceAndPath("sh_better_ui", "dishanhai_fumo"));
+        helper.succeed();
+    }
+
+    private static <T> void verifyFumoEntry(GameTestHelper helper, Registry<T> registry,
+                                            Identifier current, Identifier alternate, Identifier legacy) {
+        helper.assertTrue(registry.keySet().contains(current), "Missing Fumo registry entry " + current);
+        helper.assertTrue(!registry.keySet().contains(alternate) && !registry.keySet().contains(legacy),
+                "A second Fumo provider registered " + current);
     }
 }

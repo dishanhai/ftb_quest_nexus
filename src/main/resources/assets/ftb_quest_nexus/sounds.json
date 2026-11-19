@@ -1,0 +1,14 @@
+{
+  "dishanhai_fumo": {
+    "subtitle": "subtitles.ftb_quest_nexus.dishanhai_fumo",
+    "sounds": [
+      { "name": "ftb_quest_nexus:plushie_music", "stream": true, "attenuation_distance": 16 }
+    ]
+  },
+  "beibeipuo_fumo": {
+    "subtitle": "subtitles.ftb_quest_nexus.beibeipuo_fumo",
+    "sounds": [
+      { "name": "ftb_quest_nexus:plushie_music", "stream": true, "attenuation_distance": 16 }
+    ]
+  }
+}

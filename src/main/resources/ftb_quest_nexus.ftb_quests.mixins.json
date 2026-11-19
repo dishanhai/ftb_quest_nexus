@@ -4,6 +4,7 @@
   "package": "com.dishanhai.ftb_quest_nexus.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "ShBetterUiFumoRegistrationMixin",
     "FtbTeamDataToastMixin",
     "FtbTeamDataAutoClaimMixin",
     "FtbQuestFileRevisionMixin",

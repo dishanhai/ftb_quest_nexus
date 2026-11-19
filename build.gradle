@@ -26,7 +26,7 @@ def shBetterUiJar = file(findProperty('shBetterUiJar') ?: (shBetterUiLocal.isFil
 def shCommonLibName = "sh-common-lib-forge-${minecraft_version}-${sh_common_lib_version}.jar"
 def shCommonLibLocal = file("libs/${shCommonLibName}")
 def shCommonLibJar = file(findProperty('shCommonLibJar') ?: (shCommonLibLocal.isFile()
-        ? shCommonLibLocal : "../SH-Common-Lib/forge/build/libs/${shCommonLibName}"))
+        ? shCommonLibLocal : "../SH-Common-Lib/forge-1.20.1/build/libs/${shCommonLibName}"))
 dependencies {
     def fluxNetworks = 'curse.maven:flux-networks-248020:5234697'
     compileOnly(fg.deobf(fluxNetworks)) { transitive = false }

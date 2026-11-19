@@ -1,5 +1,6 @@
 package com.dishanhai.ftb_quest_nexus;
 
+import com.dishanhai.ftb_quest_nexus.fumo.FumoRegistration;
 import appeng.api.AECapabilities;
 import com.dishanhai.ftb_quest_nexus.api.BindingTransfer;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.ChoiceRewardNotices;
@@ -38,6 +39,7 @@ public final class QuestNexus {
         bus.addListener(ClientUiConfig::onLoad);
         container.registerConfig(ModConfig.Type.CLIENT, ClientUiConfig.SPEC);
         container.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);
+        FumoRegistration.register(bus);
         NexusContent.BLOCKS.register(bus);
         NexusContent.ITEMS.register(bus);
         NexusContent.BLOCK_ENTITIES.register(bus);

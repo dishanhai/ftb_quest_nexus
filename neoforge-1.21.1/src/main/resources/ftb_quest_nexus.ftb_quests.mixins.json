@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.dishanhai.ftb_quest_nexus.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ShBetterUiFumoRegistrationMixin",
+    "FtbTeamDataToastMixin",
+    "FtbTeamDataAutoClaimMixin",
+    "FtbQuestFileRevisionMixin",
+    "FtbServerQuestFileEditMixin"
+  ],
+  "client": ["FtbViewQuestPanelSubmitterButtonMixin", "FtbBaseScreenGlassMixin", "FtbLibraryScreenGlassMixin", "FtbQuestScreenGlassMixin", "FtbQuestPanelGlassMixin", "FtbChapterPanelGlassMixin", "FtbOtherQuestScreenGlassMixin", "FtbQuestStatusGlassMixin"],
+  "injectors": {"defaultRequire": 1}
+}

@@ -1,4 +1,9 @@
 {
+  "block.ftb_quest_nexus.dishanhai_fumo": "dishanhai",
+  "block.ftb_quest_nexus.beibeipuo_fumo": "BeiBeiPuo",
+  "block.ftb_quest_nexus.fake_fumo": "假 Fumo",
+  "subtitles.ftb_quest_nexus.dishanhai_fumo": "dishanhai 播放音乐",
+  "subtitles.ftb_quest_nexus.beibeipuo_fumo": "BeiBeiPuo 播放音乐",
   "gui.ftb_quest_nexus.checker.flux.open": "通量网络",
   "gui.ftb_quest_nexus.checker.flux.title": "选择通量网络",
   "gui.ftb_quest_nexus.checker.flux.disconnected": "未连接",

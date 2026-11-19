@@ -1,4 +1,9 @@
 {
+  "block.ftb_quest_nexus.dishanhai_fumo": "dishanhai",
+  "block.ftb_quest_nexus.beibeipuo_fumo": "BeiBeiPuo",
+  "block.ftb_quest_nexus.fake_fumo": "Replica Fumo",
+  "subtitles.ftb_quest_nexus.dishanhai_fumo": "dishanhai plays music",
+  "subtitles.ftb_quest_nexus.beibeipuo_fumo": "BeiBeiPuo plays music",
   "gui.ftb_quest_nexus.checker.flux.open": "Flux Networks",
   "gui.ftb_quest_nexus.checker.flux.title": "Select Flux Network",
   "gui.ftb_quest_nexus.checker.flux.disconnected": "Disconnected",

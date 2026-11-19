@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "ftb_quest_nexus:block/dishanhai_fumo" },
+    "facing=east": { "model": "ftb_quest_nexus:block/dishanhai_fumo", "y": 90 },
+    "facing=south": { "model": "ftb_quest_nexus:block/dishanhai_fumo", "y": 180 },
+    "facing=west": { "model": "ftb_quest_nexus:block/dishanhai_fumo", "y": 270 }
+  }
+}
