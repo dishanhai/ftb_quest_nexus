@@ -287,5 +287,10 @@
   "task.ftb_quest_nexus.create_stress.inactive": "Aim at a loaded, rotating Create Stressometer on a network that is not overloaded.",
   "task.ftb_quest_nexus.create_stress.insufficient": "Measured %s SU; requires %s.",
   "task.ftb_quest_nexus.create_stress.passed": "Stress objective verified.",
-  "task.ftb_quest_nexus.create_stress.hint": "Aim at the Stressometer, then click this task. You can also run /ftbqn stress check %s."
+  "task.ftb_quest_nexus.create_stress.hint": "Aim at the Stressometer, then click this task. You can also run /ftbqn stress check %s.",
+  "task.ftb_quest_nexus.compressed_air": "Compressed air",
+  "task.ftb_quest_nexus.compressed_air.amount": "Required air (mL)",
+  "task.ftb_quest_nexus.compressed_air.consume": "Consume air",
+  "task.ftb_quest_nexus.compressed_air.hint": "Carry a PneumaticCraft air canister or Applied Pneumatics portable air cell and click to submit. ME submission requires Consume air.",
+  "task.ftb_quest_nexus.compressed_air.unavailable": "PneumaticCraft compressed-air storage is unavailable."
 }
