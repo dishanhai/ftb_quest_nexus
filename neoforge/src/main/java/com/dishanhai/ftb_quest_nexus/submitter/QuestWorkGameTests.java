@@ -9,6 +9,9 @@ import appeng.api.storage.MEStorage;
 import com.dishanhai.ftb_quest_nexus.NexusContent;
 import com.dishanhai.ftb_quest_nexus.QuestNexus;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.FtbqRewardBuffer;
+import com.dishanhai.ftb_quest_nexus.compat.ars.ArsSourceTask;
+import net.minecraft.nbt.CompoundTag;
+import net.neoforged.fml.ModList;
 import dev.ftb.mods.ftblibrary.config.Tristate;
 import dev.ftb.mods.ftbquests.quest.Chapter;
 import dev.ftb.mods.ftbquests.quest.Quest;
@@ -100,6 +103,38 @@ public final class QuestWorkGameTests {
         storage.capacity = 8;
         pending.flush((key, amount) -> storage.insert(key, amount, Actionable.MODULATE, IActionSource.empty()), () -> {});
         helper.assertTrue(pending.isEmpty() && storage.items.get(gold) == 8, "Retry lost or duplicated reward items");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void arsSourceUsesExactStorageAndNeverCreditsReadOnlyTasks(GameTestHelper helper) {
+        Fixture f = fixture(helper);
+        var task = new ArsSourceTask(f.file.newID(), f.quest);
+        f.quest.addTask(task);
+        if (!ModList.get().isLoaded("arseng")) { helper.succeed(); return; }
+        var key = task.storageKey();
+        helper.assertTrue(key != null, "Missing real Ars Énergistique Source key");
+        var storage = new MemoryStorage(1000);
+        var iron = AEItemKey.of(Items.IRON_INGOT);
+        storage.items.add(iron, 100);
+        storage.items.add(key, 99);
+        var action = IActionSource.empty();
+        helper.assertTrue(QuestWork.extract(storage, f.data, task, action, new QuestWork.ItemKeys()) == 0,
+                "A read-only Source check extracted ME storage");
+        var tag = new CompoundTag();
+        tag.putBoolean("consume", true);
+        tag.putLong("amount", 150);
+        task.readData(tag, helper.getLevel().registryAccess());
+        var first = QuestWork.extract(storage, f.data, task, action, new QuestWork.ItemKeys());
+        helper.assertTrue(first == 99 && storage.items.get(iron) == 100 && storage.items.get(key) == 0,
+                "Submitter extracted an incorrect Source type/count");
+        f.data.addProgress(task, first);
+        storage.items.add(key, 100);
+        var second = QuestWork.extract(storage, f.data, task, action, new QuestWork.ItemKeys());
+        helper.assertTrue(second == 51 && storage.items.get(key) == 49, "Submitter extracted more than the remaining Source");
+        f.data.addProgress(task, second);
+        helper.assertTrue(QuestWork.extract(storage, f.data, task, action, new QuestWork.ItemKeys()) == 0
+                && storage.items.get(key) == 49, "Completed Source task consumed resources again");
         helper.succeed();
     }
 

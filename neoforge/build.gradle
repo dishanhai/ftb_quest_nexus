@@ -119,6 +119,7 @@ tasks.register('verifyModJar') {
             ['META-INF/neoforge.mods.toml', 'ftb_quest_nexus.ftb_quests.mixins.json',
              'com/dishanhai/ftb_quest_nexus/QuestNexus.class',
              'com/dishanhai/ftb_quest_nexus/compat/create/CreateStressTask.class',
+             'com/dishanhai/ftb_quest_nexus/compat/ars/ArsSourceTask.class',
              'data/ftb_quest_nexus/loot_table/blocks/ftbq_ae_submitter.json',
              'data/ftb_quest_nexus/recipe/ftbq_ae_submitter.json'].each {
                 if (zip.getEntry(it) == null) throw new GradleException("Missing mod entry: ${it}")
@@ -130,6 +131,7 @@ tasks.register('verifyModJar') {
                 it.name.startsWith('assets/sh_better_ui/') || it.name.startsWith('appeng/') ||
                 it.name.startsWith('dev/ftb/') || it.name.startsWith('mekanism/') ||
                 it.name.startsWith('me/ramidzkh/mekae2/') || it.name.startsWith('com/simibubi/create/') ||
+                it.name.startsWith('com/hollingsworth/arsnouveau/') || it.name.startsWith('gripe/_90/arseng/') ||
                 it.name.contains('GameTests')
             }.collect { it.name }
             if (!forbidden.isEmpty()) throw new GradleException("Unexpected mod entries: ${forbidden.take(5)}")
