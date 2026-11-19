@@ -14,6 +14,7 @@ Author: dishanhai（山海恒长在）。项目名称：FTB Quest Nexus；mod ID
 - 提交器玻璃面板：改为原生 Screen，使用外部 SH-Better-UI API，保留原尺寸、按钮、模糊与 UUID 悬停语义。
 - 原 `textures/block/casings/ftbq_ae_submitter_casing.png` 及 `.mcmeta`；`textures/block/machine/part/ftbq_ae_submitter/` 的前面、在线前面与发光 PNG／动画元数据，原样复制，仅资源命名空间改变。
 - 原配方、语言、指南中的相关说明：独立命名空间并移除 KubeJS 配方材料。
+- Fumo 方块、动画、音效、奖池和配套资源来自山海／dishanhai 维护的 SH-Common-Lib 提交 `a2deabc`。FTB Quest Nexus 使用自己的方块、物品和方块实体 ID，沿用原 SH-Better-UI 合成配方 ID。
 
 ## 外部依赖
 

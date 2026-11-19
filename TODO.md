@@ -1,6 +1,6 @@
 # FTB Quest Nexus 待办
 
-- [ ] 山海／dishanhai：使用配置指定的 SH-Better-UI 1.0.7 Forge dev JAR 验证 1.2.0 构建。本机目前使用 1.0.11 dev JAR 覆盖路径完成构建；NeoForge 1.21.1 的本机依赖也需通过路径覆盖或放入 `neoforge/libs/`。
+- [ ] 山海／dishanhai：在 Forge 1.20.1、NeoForge 1.21.1 和 26.1.2 客户端验收 Fumo 模型、创造栏、跳舞音效及旧存档载入。分别验证 SHCLIB 在场与缺席的组合。
 
 - [x] 山海／dishanhai：完成 Minecraft 26.1.2 / NeoForge 26.1.2.126 移植。独立构建目录为 `neoforge-26.1.2/`，使用 Java 25 和 SH-Better-UI `1.0.7-alpha.8`。
   - 构建、35 项单测及 3 项原生 GameTest 通过。GameTest 在有、无 Mekanism 和 Applied Mekanistics 的环境均通过。
