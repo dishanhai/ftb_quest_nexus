@@ -287,5 +287,10 @@
   "task.ftb_quest_nexus.create_stress.inactive": "请对准已加载且正常运转、未过载的机械动力应力表。",
   "task.ftb_quest_nexus.create_stress.insufficient": "实测 %s SU；需要 %s。",
   "task.ftb_quest_nexus.create_stress.passed": "应力目标已验证。",
-  "task.ftb_quest_nexus.create_stress.hint": "准星对准应力表后点击此任务，或运行 /ftbqn stress check %s。"
+  "task.ftb_quest_nexus.create_stress.hint": "准星对准应力表后点击此任务，或运行 /ftbqn stress check %s。",
+  "task.ftb_quest_nexus.compressed_air": "压缩空气",
+  "task.ftb_quest_nexus.compressed_air.amount": "所需空气量（mL）",
+  "task.ftb_quest_nexus.compressed_air.consume": "消耗空气",
+  "task.ftb_quest_nexus.compressed_air.hint": "携带气动工艺储气罐或应用气动便携储气元件，点击任务提交。ME 提交仅用于消耗模式。",
+  "task.ftb_quest_nexus.compressed_air.unavailable": "气动工艺的压缩空气储存不可用。"
 }

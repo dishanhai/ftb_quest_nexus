@@ -5,6 +5,7 @@ import com.dishanhai.ftb_quest_nexus.api.BindingTransfer;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.ChoiceRewardNotices;
 import com.dishanhai.ftb_quest_nexus.compat.create.CreateStressCheck;
 import com.dishanhai.ftb_quest_nexus.compat.create.CreateStressTask;
+import com.dishanhai.ftb_quest_nexus.compat.pneumatic.CompressedAirTask;
 import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalTask;
 import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalReward;
 import com.dishanhai.ftb_quest_nexus.compat.mekanism.ChemicalRewards;
@@ -37,6 +38,7 @@ public final class QuestNexus {
     public QuestNexus(IEventBus bus, ModContainer container) {
         ChemicalTask.init();
         CreateStressTask.init();
+        CompressedAirTask.init();
         ChemicalReward.init();
         bus.addListener(ClientUiConfig::onLoad);
         container.registerConfig(ModConfig.Type.CLIENT, ClientUiConfig.SPEC);
