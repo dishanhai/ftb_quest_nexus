@@ -101,3 +101,5 @@ blurRadius = 8
 作者與程式碼來源見 [SOURCE.md](SOURCE.md)。專案名稱和模組 ID 固定為 **FTB Quest Nexus / `ftb_quest_nexus`**。
 
 [機械動力 / 應用機動應力任務](docs/create-stress-task.md)（NeoForge 1.21.1）
+
+[新生魔藝／Ars Énergistique 魔源任務](docs/ars-source-task.md)（NeoForge 1.21.1）

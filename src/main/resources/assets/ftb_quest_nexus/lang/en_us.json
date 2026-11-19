@@ -292,5 +292,12 @@
   "task.ftb_quest_nexus.compressed_air.amount": "Required air (mL)",
   "task.ftb_quest_nexus.compressed_air.consume": "Consume air",
   "task.ftb_quest_nexus.compressed_air.hint": "Carry a PneumaticCraft air canister or Applied Pneumatics portable air cell and click to submit. ME submission requires Consume air.",
-  "task.ftb_quest_nexus.compressed_air.unavailable": "PneumaticCraft compressed-air storage is unavailable."
+  "task.ftb_quest_nexus.compressed_air.unavailable": "PneumaticCraft compressed-air storage is unavailable.",
+  "task.ftb_quest_nexus.ars_source": "Ars Nouveau Source",
+  "task.ftb_quest_nexus.ars_source.amount": "Required Source units",
+  "task.ftb_quest_nexus.ars_source.consume": "Consume Source",
+  "task.ftb_quest_nexus.ars_source.check_hint": "Click to check carried Source Jars without draining them.",
+  "task.ftb_quest_nexus.ars_source.consume_hint": "Click to drain carried Source Jars. A powered AE Submitter can also submit stored Source with Ars Énergistique.",
+  "task.ftb_quest_nexus.ars_source.missing": "Ars Nouveau is not installed on this server.",
+  "task.ftb_quest_nexus.ars_source.not_enough": "Not enough Source in your carried Source Jars, or no room to split a stack."
 }

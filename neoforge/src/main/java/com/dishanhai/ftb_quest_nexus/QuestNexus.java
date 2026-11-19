@@ -3,6 +3,7 @@ package com.dishanhai.ftb_quest_nexus;
 import appeng.api.AECapabilities;
 import com.dishanhai.ftb_quest_nexus.api.BindingTransfer;
 import com.dishanhai.ftb_quest_nexus.api.ftbq.ChoiceRewardNotices;
+import com.dishanhai.ftb_quest_nexus.compat.ars.ArsSourceTask;
 import com.dishanhai.ftb_quest_nexus.compat.create.CreateStressCheck;
 import com.dishanhai.ftb_quest_nexus.compat.create.CreateStressTask;
 import com.dishanhai.ftb_quest_nexus.compat.pneumatic.CompressedAirTask;
@@ -38,6 +39,7 @@ public final class QuestNexus {
     public QuestNexus(IEventBus bus, ModContainer container) {
         ChemicalTask.init();
         CreateStressTask.init();
+        ArsSourceTask.init();
         CompressedAirTask.init();
         ChemicalReward.init();
         bus.addListener(ClientUiConfig::onLoad);

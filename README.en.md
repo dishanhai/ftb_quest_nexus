@@ -101,3 +101,5 @@ The project was forked from `gt_shanhai:ftbq_ae_submitter` and carries over its 
 The project name and mod ID are **FTB Quest Nexus / `ftb_quest_nexus`**. See [source and attribution](SOURCE.md).
 
 [Create / Applied Kinetics stress objective](docs/create-stress-task.md) (NeoForge 1.21.1)
+
+[Ars Nouveau / Ars Énergistique Source objective](docs/ars-source-task.md) (NeoForge 1.21.1)

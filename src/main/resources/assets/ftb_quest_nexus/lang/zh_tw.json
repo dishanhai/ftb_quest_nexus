@@ -284,5 +284,12 @@
   "task.ftb_quest_nexus.compressed_air.amount": "所需空氣量（mL）",
   "task.ftb_quest_nexus.compressed_air.consume": "消耗空氣",
   "task.ftb_quest_nexus.compressed_air.hint": "攜帶氣動工藝儲氣罐或應用氣動便攜儲氣元件，點擊任務提交。ME 提交僅用於消耗模式。",
-  "task.ftb_quest_nexus.compressed_air.unavailable": "氣動工藝的壓縮空氣儲存無法使用。"
+  "task.ftb_quest_nexus.compressed_air.unavailable": "氣動工藝的壓縮空氣儲存無法使用。",
+  "task.ftb_quest_nexus.ars_source": "新生魔藝魔源",
+  "task.ftb_quest_nexus.ars_source.amount": "所需魔源單位",
+  "task.ftb_quest_nexus.ars_source.consume": "消耗魔源",
+  "task.ftb_quest_nexus.ars_source.check_hint": "點擊檢查隨身魔源罐，不會消耗魔源。",
+  "task.ftb_quest_nexus.ars_source.consume_hint": "點擊從隨身的魔源罐提交魔源。安裝 Ars Énergistique 後，也可由有電的 AE 提交器從網路提交。",
+  "task.ftb_quest_nexus.ars_source.missing": "此伺服器未安裝新生魔藝。",
+  "task.ftb_quest_nexus.ars_source.not_enough": "隨身魔源罐中的魔源不足，或背包沒有空位拆分罐子。"
 }
